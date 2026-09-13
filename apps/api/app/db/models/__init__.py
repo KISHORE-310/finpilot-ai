@@ -12,6 +12,7 @@ from app.db.models.budget import Budget, BudgetPeriod
 from app.db.models.recurring_transaction import RecurringTransaction, Frequency
 from app.db.models.net_worth_snapshot import NetWorthSnapshot
 from app.db.models.financial_alert import FinancialAlert, AlertType, AlertSeverity
+from app.db.models.conversation import Conversation, Message, MessageRole
 
 __all__ = [
     "Base",
@@ -40,4 +41,7 @@ __all__ = [
     "FinancialAlert",
     "AlertType",
     "AlertSeverity",
+    "Conversation",
+    "Message",
+    "MessageRole",
 ]

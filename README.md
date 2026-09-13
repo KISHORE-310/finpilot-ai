@@ -69,3 +69,35 @@ npm run dev
 
 ## ⚠️ Financial Disclaimer
 FinPilot AI provides educational personal finance organization and deterministic analytical tools. It does not provide certified financial, investment, legal, tax, or credit advice. Investment holdings reflect user-entered recorded valuations.
+
+## Phase 3: AI Financial Analyst (LangChain) ✅
+
+Phase 3 introduces the conversational AI layer on top of the Phase 2 analytics platform.
+
+### What's New in Phase 3
+
+- **LangChain Tool Calling**: 13 user-scoped deterministic tools wrapping Phase 2 analytics services
+- **Conversation Memory**: Persistent multi-turn conversation threads with SQLAlchemy storage
+- **Educational RAG**: Curated knowledge base (CFPB, SEC, FDIC, Federal Reserve) with citations
+- **Safety Guardrails**: Trade execution refusal, prompt injection detection, guaranteed-returns interception
+- **AI Analyst UI**: Complete React workspace with conversation sidebar, tool usage badges, and citation cards
+- **Anti-Hallucination**: LLM synthesizes grounded analytics output, never performs raw arithmetic
+
+### AI Endpoint
+
+```bash
+# Chat with your financial data
+curl -X POST http://localhost:8000/api/v1/ai/chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What is my net worth and savings rate this month?"}'
+```
+
+### Phase 3 Test Suite
+
+```bash
+cd apps/api
+pytest tests/test_ai_*.py -v
+# Expected: 20 Phase 3 tests + 17 Phase 1&2 tests = 37 total passing
+```
+

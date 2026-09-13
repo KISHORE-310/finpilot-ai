@@ -30,6 +30,11 @@ import {
   SpendingBreakdownResponse,
   Transaction,
   User,
+  ChatRequest,
+  ChatResponse,
+  ConversationResponse,
+  MessageItemResponse,
+  AIHealthResponse,
 } from '@/types';
 
 const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
@@ -186,10 +191,27 @@ export class ApiClient {
   };
 
   alerts = {
-    list: (unreadOnly = false, limit = 50) => this.get<AlertResponse[]>(`/alerts?unread_only=${unreadOnly}&limit=${limit}`),
+    list: (unreadOnly = false, limit = 50) => this.get<AlertResponse[]>(`/alerts?unread_only=false&limit=50`),
     summary: () => this.get<AlertSummary>('/alerts/summary'),
     markRead: (id: string) => this.patch<AlertResponse>(`/alerts/${id}/read`),
     evaluate: () => this.post<AlertResponse[]>('/alerts/evaluate'),
+  };
+
+  ai = {
+    health: () =>
+      this.get<AIHealthResponse>('/ai/health'),
+    chat: (data: ChatRequest) =>
+      this.post<ChatResponse>('/ai/chat', data),
+    listConversations: () =>
+      this.get<ConversationResponse[]>('/ai/conversations'),
+    createConversation: (title?: string) =>
+      this.request<ConversationResponse>(`/ai/conversations?title=${encodeURIComponent(title || 'New Financial Chat')}`, { method: 'POST' }),
+    getConversation: (id: string) =>
+      this.get<ConversationResponse>(`/ai/conversations/${id}`),
+    listMessages: (id: string) =>
+      this.get<MessageItemResponse[]>(`/ai/conversations/${id}/messages`),
+    deleteConversation: (id: string) =>
+      this.delete<void>(`/ai/conversations/${id}`),
   };
 }
 

@@ -19,6 +19,7 @@ from app.api.routes import (
     dashboard_router,
     analytics_router,
     alerts_router,
+    ai_router,
 )
 
 app = FastAPI(
@@ -65,6 +66,7 @@ app.include_router(imports_router, prefix=api_v1)
 app.include_router(dashboard_router, prefix=api_v1)
 app.include_router(analytics_router, prefix=api_v1)
 app.include_router(alerts_router, prefix=api_v1)
+app.include_router(ai_router, prefix=api_v1)
 
 
 @app.get("/health", tags=["Health"])

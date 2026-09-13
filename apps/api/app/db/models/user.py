@@ -25,3 +25,4 @@ class User(Base, TimestampMixin):
     recurring_transactions = relationship("RecurringTransaction", back_populates="user", cascade="all, delete-orphan")
     net_worth_snapshots = relationship("NetWorthSnapshot", back_populates="user", cascade="all, delete-orphan")
     financial_alerts = relationship("FinancialAlert", back_populates="user", cascade="all, delete-orphan")
+    conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")

@@ -585,3 +585,69 @@ export interface ImportExecuteResponse {
 export interface MessageResponse {
   message: string;
 }
+
+
+// ==========================================
+// PHASE 3 — AI FINANCIAL ANALYST TYPES
+// ==========================================
+
+export interface Citation {
+  source: string;
+  title: string;
+  doc_id?: string;
+  excerpt?: string;
+}
+
+export interface KeyMetric {
+  label: string;
+  value: string;
+}
+
+export interface AIInsight {
+  category: string;
+  text: string;
+  sentiment?: "positive" | "negative" | "neutral" | "warning";
+}
+
+export interface ChatRequest {
+  message: string;
+  conversation_id?: string;
+  include_rag?: boolean;
+}
+
+export interface ChatResponse {
+  response: string;
+  conversation_id: string;
+  citations: Citation[];
+  tools_used: string[];
+  key_metrics?: KeyMetric[];
+  insights?: AIInsight[];
+  disclaimer?: string;
+  guardrail_intervened?: boolean;
+  model: string;
+}
+
+export interface ConversationResponse {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count?: number;
+}
+
+export interface MessageItemResponse {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant" | "system" | "tool";
+  content: string;
+  tools_used?: string[];
+  citations?: Citation[];
+  created_at: string;
+}
+
+export interface AIHealthResponse {
+  status: string;
+  model: string;
+  knowledge_docs_count: number;
+  provider: string;
+}
