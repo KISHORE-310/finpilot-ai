@@ -37,7 +37,7 @@ All financial amounts are stored as exact numeric representations (`NUMERIC(18, 
 
 ---
 
-## 3. Financial Analytics Engine Modules (`apps/api/app/services/analytics/`)
+## 3. Financial Analytics Engine Modules (`backend/app/services/analytics/`)
 - `date_range_helper.py`: Normalizes dynamic periods (`this_month`, `last_month`, `last_3_months`, `last_6_months`, `this_year`, `last_year`, `custom`) and calculates previous comparison periods.
 - `cash_flow_service.py`: Computes net cash flow, savings rate, and granular time-series (daily/weekly/monthly).
 - `spending_service.py`: Categorical breakdown, period-over-period delta %, top merchant aggregations, and annualized recurring commitments.

@@ -48,7 +48,7 @@
 
 ### Backend Setup
 ```bash
-cd apps/api
+cd backend
 python -m venv venv
 source venv/bin/activate  # or .\venv\Scripts\activate on Windows
 pip install -r requirements.txt
@@ -58,7 +58,7 @@ uvicorn app.main:app --reload --port 8000
 
 ### Frontend Setup
 ```bash
-cd apps/web
+cd frontend
 npm install
 npm run typecheck
 npm run build
@@ -96,7 +96,7 @@ curl -X POST http://localhost:8000/api/v1/ai/chat \
 ### Phase 3 Test Suite
 
 ```bash
-cd apps/api
+cd backend
 pytest tests/test_ai_*.py -v
 # Expected: 20 Phase 3 tests + 17 Phase 1&2 tests = 37 total passing
 ```

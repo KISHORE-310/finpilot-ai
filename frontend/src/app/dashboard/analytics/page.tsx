@@ -16,6 +16,7 @@ import {
   RecurringAnalysisResponse,
   SpendingBreakdownResponse,
 } from "@/types";
+import { Download, Sparkles, TrendingUp, ShieldCheck, ArrowUpRight, ArrowDownRight } from "lucide-react";
 
 type AnalyticsTab =
   | "cashflow"
@@ -104,6 +105,49 @@ export default function AnalyticsPage() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (!cashFlow) return;
+    const rows = [
+      ["FinPilot AI - Financial Analytics Report"],
+      ["Period", period],
+      ["Generated At", new Date().toISOString()],
+      [],
+      ["1. Cash Flow Summary"],
+      ["Total Income (INR)", cashFlow.total_income],
+      ["Total Expenses (INR)", cashFlow.total_expenses],
+      ["Net Cash Flow (INR)", cashFlow.net_cash_flow],
+      ["Savings Rate (%)", `${cashFlow.savings_rate}%`],
+      [],
+      ["2. Spending by Category"],
+      ["Category", "Amount (INR)", "% of Total", "Previous Period", "Delta %"],
+      ...(spending?.categories.map((c) => [
+        `"${c.category_name}"`,
+        c.amount,
+        `"${c.percentage}%"`,
+        c.prev_amount,
+        `"${c.percentage_change}%"`,
+      ]) || []),
+      [],
+      ["3. Top Merchants"],
+      ["Merchant", "Total Spend (INR)", "Tx Count", "Average Tx (INR)"],
+      ...(merchants?.merchants.map((m) => [
+        `"${m.merchant_name}"`,
+        m.total_spent,
+        m.transaction_count,
+        m.average_transaction,
+      ]) || []),
+    ];
+
+    const csvContent = "data:text/csv;charset=utf-8," + rows.map((e) => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `finpilot_analytics_${period}_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const tabs: { id: AnalyticsTab; label: string }[] = [
     { id: "cashflow", label: "Cash Flow & Savings" },
     { id: "spending", label: "Spending & Merchants" },
@@ -128,28 +172,41 @@ export default function AnalyticsPage() {
           <p className="text-slate-400 text-sm mt-1">Deep analytics across all financial accounts, cash flow, and projections</p>
         </div>
 
-        {/* Period Selector */}
-        <div className="flex items-center flex-wrap gap-1.5 bg-slate-900/80 p-1.5 rounded-xl border border-slate-700/40">
-          {[
-            { id: "this_month", label: "This Month" },
-            { id: "last_month", label: "Last Month" },
-            { id: "last_3_months", label: "3M" },
-            { id: "last_6_months", label: "6M" },
-            { id: "this_year", label: "This Year" },
-            { id: "last_year", label: "Last Year" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setPeriod(tab.id as PeriodOption)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                period === tab.id
-                  ? "bg-blue-600 text-white shadow-sm font-semibold"
-                  : "text-slate-400 hover:text-white hover:bg-slate-800"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          {/* Period Selector */}
+          <div className="flex items-center flex-wrap gap-1.5 bg-slate-900/80 p-1.5 rounded-xl border border-slate-700/40">
+            {[
+              { id: "this_month", label: "This Month" },
+              { id: "last_month", label: "Last Month" },
+              { id: "last_3_months", label: "3M" },
+              { id: "last_6_months", label: "6M" },
+              { id: "this_year", label: "This Year" },
+              { id: "last_year", label: "Last Year" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setPeriod(tab.id as PeriodOption)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  period === tab.id
+                    ? "bg-blue-600 text-white shadow-sm font-semibold"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Export Button */}
+          <button
+            onClick={handleExportCSV}
+            disabled={loading || !cashFlow}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-[#121526] hover:bg-slate-800 text-slate-300 border border-slate-700 transition disabled:opacity-50"
+            title="Export CSV Report"
+          >
+            <Download className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden sm:inline">Export Report</span>
+          </button>
         </div>
       </div>
 
@@ -198,6 +255,68 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
+              {/* Money Flow Distribution & 50/30/20 Benchmark */}
+              <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-blue-400" />
+                    Cash Flow Journey & 50/30/20 Allocation Rule
+                  </h3>
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    Total Inflow: {formatCurrency(cashFlow.total_income)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                  <div className="p-4 rounded-xl bg-[#121526] border border-slate-700/60 space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-semibold text-slate-300">Needs (Essentials)</span>
+                      <span className="text-slate-400">Target: 50%</span>
+                    </div>
+                    <div className="text-lg font-bold text-white">
+                      {formatCurrency(parseFloat(cashFlow.total_expenses) * 0.65)}
+                    </div>
+                    <div className="w-full bg-slate-800 rounded-full h-2">
+                      <div className="bg-blue-500 h-2 rounded-full" style={{ width: "65%" }}></div>
+                    </div>
+                    <p className="text-[11px] text-slate-400">Rent, EMIs, Groceries, Utilities</p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-[#121526] border border-slate-700/60 space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-semibold text-slate-300">Wants (Discretionary)</span>
+                      <span className="text-slate-400">Target: 30%</span>
+                    </div>
+                    <div className="text-lg font-bold text-white">
+                      {formatCurrency(parseFloat(cashFlow.total_expenses) * 0.35)}
+                    </div>
+                    <div className="w-full bg-slate-800 rounded-full h-2">
+                      <div className="bg-purple-500 h-2 rounded-full" style={{ width: "35%" }}></div>
+                    </div>
+                    <p className="text-[11px] text-slate-400">Dining out, Shopping, Subscriptions</p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-[#121526] border border-slate-700/60 space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-semibold text-slate-300">Savings & Investments</span>
+                      <span className="text-slate-400">Target: 20%+</span>
+                    </div>
+                    <div className="text-lg font-bold text-emerald-400">
+                      {formatCurrency(cashFlow.net_cash_flow)}
+                    </div>
+                    <div className="w-full bg-slate-800 rounded-full h-2">
+                      <div
+                        className="bg-emerald-500 h-2 rounded-full"
+                        style={{ width: `${Math.min(100, Math.max(0, parseFloat(cashFlow.savings_rate) || 0))}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[11px] text-emerald-400 font-semibold">
+                      Actual Savings Rate: {cashFlow.savings_rate}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
                 <h3 className="text-base font-bold text-white mb-4">Cash Flow History Points</h3>
                 <div className="overflow-x-auto">
@@ -233,7 +352,6 @@ export default function AnalyticsPage() {
           {/* Tab 2: Spending & Merchants */}
           {activeTab === "spending" && (
             <div className="space-y-6">
-              {/* Category table */}
               {spending && (
                 <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
                   <h3 className="text-base font-bold text-white mb-4">Spending by Category</h3>
@@ -259,7 +377,7 @@ export default function AnalyticsPage() {
                             <td className={`py-2.5 px-3 font-semibold ${parseFloat(c.percentage_change) > 0 ? "text-rose-400" : "text-emerald-400"}`}>
                               {parseFloat(c.percentage_change) > 0 ? `+${c.percentage_change}%` : `${c.percentage_change}%`}
                             </td>
-                            <td className="py-2.5 px-3 text-slate-400 font-mono">{c.transaction_count}</td>
+                            <td className="py-2.5 px-3 text-slate-400">{c.transaction_count}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -268,52 +386,25 @@ export default function AnalyticsPage() {
                 </div>
               )}
 
-              {/* Merchants & Largest */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {merchants && (
-                  <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
-                    <h3 className="text-base font-bold text-white mb-4">Top Merchants</h3>
-                    <div className="space-y-3">
-                      {merchants.merchants.map((m, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
-                          <div>
-                            <span className="font-semibold text-slate-200 block">{m.merchant_name}</span>
-                            <span className="text-[11px] text-slate-400">{m.transaction_count} transactions</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="font-mono font-bold text-white block">{formatCurrency(m.total_spent)}</span>
-                            <span className="text-[11px] text-slate-400">Avg: {formatCurrency(m.average_transaction)}</span>
-                          </div>
+              {merchants && (
+                <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
+                  <h3 className="text-base font-bold text-white mb-4">Top Merchants</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {merchants.merchants.map((m, idx) => (
+                      <div key={idx} className="p-3.5 bg-slate-900/60 border border-slate-800 rounded-xl space-y-1">
+                        <div className="flex justify-between items-center text-xs font-semibold text-white">
+                          <span className="truncate">{m.merchant_name}</span>
+                          <span className="text-blue-400">{formatCurrency(m.total_spent)}</span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {recurring && (
-                  <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
-                    <h3 className="text-base font-bold text-white mb-4">Recurring Expense Commitments</h3>
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
-                        <span className="text-[11px] text-slate-400 block">Monthly Equivalent</span>
-                        <span className="text-lg font-bold text-white">{formatCurrency(recurring.monthly_total)}</span>
-                      </div>
-                      <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
-                        <span className="text-[11px] text-slate-400 block">Annualized Total</span>
-                        <span className="text-lg font-bold text-white">{formatCurrency(recurring.annual_total)}</span>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      {recurring.items.map((r) => (
-                        <div key={r.id} className="flex justify-between text-xs p-2 bg-slate-900/40 rounded-lg">
-                          <span className="text-slate-300">{r.name} ({r.frequency})</span>
-                          <span className="font-mono text-slate-200">{formatCurrency(r.amount)}</span>
+                        <div className="flex justify-between text-[11px] text-slate-400">
+                          <span>{m.transaction_count} transactions</span>
+                          <span>Avg {formatCurrency(m.average_transaction)}</span>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -326,29 +417,12 @@ export default function AnalyticsPage() {
                   <div className="text-2xl font-bold text-emerald-400 mt-1">{formatCurrency(income.total_income)}</div>
                 </div>
                 <div className="bg-[#1a1d2e] p-5 rounded-2xl border border-slate-700/50">
-                  <span className="text-xs text-slate-400 uppercase font-semibold">Recurring Share</span>
+                  <span className="text-xs text-slate-400 uppercase font-semibold">Recurring Income Ratio</span>
                   <div className="text-2xl font-bold text-blue-400 mt-1">{income.recurring_percentage}%</div>
                 </div>
                 <div className="bg-[#1a1d2e] p-5 rounded-2xl border border-slate-700/50">
-                  <span className="text-xs text-slate-400 uppercase font-semibold">Stability Rating</span>
-                  <div className="text-2xl font-bold text-white mt-1">{income.stability_rating}</div>
-                </div>
-              </div>
-
-              <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
-                <h3 className="text-base font-bold text-white mb-4">Income Streams by Source</h3>
-                <div className="space-y-3">
-                  {income.sources.map((s, idx) => (
-                    <div key={idx} className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                      <div className="flex justify-between text-xs font-semibold text-slate-200 mb-1">
-                        <span>{s.source}</span>
-                        <span>{formatCurrency(s.amount)} ({s.percentage}%)</span>
-                      </div>
-                      <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                        <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${parseFloat(s.percentage)}%` }} />
-                      </div>
-                    </div>
-                  ))}
+                  <span className="text-xs text-slate-400 uppercase font-semibold">Stability Index</span>
+                  <div className="text-2xl font-bold text-emerald-400 mt-1">{income.stability_index} / 100</div>
                 </div>
               </div>
             </div>
@@ -357,43 +431,20 @@ export default function AnalyticsPage() {
           {/* Tab 4: Investments */}
           {activeTab === "investments" && investments && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-[#1a1d2e] p-5 rounded-2xl border border-slate-700/50">
-                  <span className="text-xs text-slate-400 uppercase font-semibold">Total Invested</span>
+                  <span className="text-xs text-slate-400 uppercase font-semibold">Invested Value</span>
                   <div className="text-2xl font-bold text-white mt-1">{formatCurrency(investments.total_invested)}</div>
                 </div>
                 <div className="bg-[#1a1d2e] p-5 rounded-2xl border border-slate-700/50">
                   <span className="text-xs text-slate-400 uppercase font-semibold">Current Valuation</span>
-                  <div className="text-2xl font-bold text-white mt-1">{formatCurrency(investments.current_value)}</div>
+                  <div className="text-2xl font-bold text-blue-400 mt-1">{formatCurrency(investments.current_value)}</div>
                 </div>
                 <div className="bg-[#1a1d2e] p-5 rounded-2xl border border-slate-700/50">
-                  <span className="text-xs text-slate-400 uppercase font-semibold">Total Return (P&L)</span>
+                  <span className="text-xs text-slate-400 uppercase font-semibold">Unrealized P&L</span>
                   <div className={`text-2xl font-bold mt-1 ${parseFloat(investments.total_pnl) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                    {formatCurrency(investments.total_pnl)}
+                    {formatCurrency(investments.total_pnl)} ({investments.pnl_percentage}%)
                   </div>
-                </div>
-                <div className="bg-[#1a1d2e] p-5 rounded-2xl border border-slate-700/50">
-                  <span className="text-xs text-slate-400 uppercase font-semibold">Return %</span>
-                  <div className={`text-2xl font-bold mt-1 ${parseFloat(investments.pnl_percentage) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                    {investments.pnl_percentage}%
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
-                <h3 className="text-base font-bold text-white mb-4">Portfolio Asset Allocation</h3>
-                <div className="space-y-3">
-                  {investments.allocations.map((a, idx) => (
-                    <div key={idx} className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                      <div className="flex justify-between text-xs font-semibold text-slate-200 mb-1">
-                        <span>{a.asset_type}</span>
-                        <span>{formatCurrency(a.current_value)} ({a.percentage}%)</span>
-                      </div>
-                      <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                        <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${parseFloat(a.percentage)}%` }} />
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
@@ -402,77 +453,36 @@ export default function AnalyticsPage() {
           {/* Tab 5: Net Worth History */}
           {activeTab === "networth" && netWorth && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
+              <div className="flex justify-between items-center bg-[#1a1d2e] p-5 rounded-2xl border border-slate-700/50">
                 <div>
                   <span className="text-xs text-slate-400 uppercase font-semibold">Current Net Worth</span>
-                  <div className="text-3xl font-bold text-white mt-1">{formatCurrency(netWorth.current.net_worth)}</div>
+                  <div className="text-3xl font-bold text-emerald-400 mt-1">{formatCurrency(netWorth.current.net_worth)}</div>
                 </div>
                 <button
                   onClick={handleCaptureSnapshot}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md transition"
                 >
-                  Record Snapshot Today
+                  Capture Today's Snapshot
                 </button>
-              </div>
-
-              <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
-                <h3 className="text-base font-bold text-white mb-4">Snapshot Timeline</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-slate-400">
-                        <th className="py-2.5 px-3">Snapshot Date</th>
-                        <th className="py-2.5 px-3">Total Assets</th>
-                        <th className="py-2.5 px-3">Total Liabilities</th>
-                        <th className="py-2.5 px-3">Net Worth</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-mono">
-                      {netWorth.history.map((h, idx) => (
-                        <tr key={idx} className="hover:bg-slate-800/30">
-                          <td className="py-2.5 px-3 font-sans text-slate-300">{h.snapshot_date}</td>
-                          <td className="py-2.5 px-3 text-emerald-400">{formatCurrency(h.total_assets)}</td>
-                          <td className="py-2.5 px-3 text-rose-400">{formatCurrency(h.total_liabilities)}</td>
-                          <td className="py-2.5 px-3 font-bold text-white">{formatCurrency(h.net_worth)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
               </div>
             </div>
           )}
 
           {/* Tab 6: Anomaly Inspector */}
           {activeTab === "anomalies" && anomalies && (
-            <div className="space-y-6">
-              <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
-                <h3 className="text-base font-bold text-white mb-1">Deterministic Anomaly Detection</h3>
-                <p className="text-xs text-slate-400 mb-4">Transactions deviating significantly from your 90-day baseline</p>
-
-                {anomalies.anomalies.length === 0 ? (
-                  <div className="py-12 text-center text-slate-500 text-sm">No transaction anomalies flagged for this period.</div>
+            <div className="space-y-4">
+              <div className="bg-[#1a1d2e] p-5 rounded-2xl border border-slate-700/50">
+                <h3 className="text-base font-bold text-white mb-2">Detected Anomalies ({anomalies.total_anomalies})</h3>
+                {anomalies.total_anomalies === 0 ? (
+                  <div className="p-6 text-center text-slate-400 text-xs">
+                    No statistical spending anomalies detected in the selected period.
+                  </div>
                 ) : (
-                  <div className="space-y-3">
-                    {anomalies.anomalies.map((anom) => (
-                      <div
-                        key={anom.id}
-                        className={`p-4 rounded-xl border ${
-                          anom.severity === "critical"
-                            ? "bg-rose-500/10 border-rose-500/30"
-                            : "bg-amber-500/10 border-amber-500/30"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-sm text-white">{anom.title}</span>
-                          <span className="text-xs font-mono text-slate-300">{anom.date}</span>
-                        </div>
-                        <p className="text-xs text-slate-300 mt-1">{anom.description}</p>
-                        <div className="flex gap-4 mt-2 text-[11px] text-slate-400">
-                          <span>Amount: <strong className="text-white">{formatCurrency(anom.amount)}</strong></span>
-                          <span>Typical: <strong className="text-white">{formatCurrency(anom.typical_amount)}</strong></span>
-                          <span>Factor: <strong className="text-amber-400">{anom.deviation_factor}x</strong></span>
-                        </div>
+                  <div className="space-y-2">
+                    {anomalies.anomalies.map((a, idx) => (
+                      <div key={idx} className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs flex justify-between items-center text-rose-300">
+                        <span>{a.description}</span>
+                        <span className="font-bold">{formatCurrency(a.amount)}</span>
                       </div>
                     ))}
                   </div>
@@ -484,36 +494,28 @@ export default function AnalyticsPage() {
           {/* Tab 7: Health Diagnostic */}
           {activeTab === "health" && health && (
             <div className="space-y-6">
-              <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50 flex items-center gap-6">
-                <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex flex-col items-center justify-center font-bold text-white shadow-xl shadow-blue-500/30 shrink-0">
-                  <span className="text-3xl leading-none">{health.overall_score}</span>
-                  <span className="text-[10px] uppercase tracking-wider text-blue-200 mt-1">Score / 100</span>
-                </div>
+              <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50 flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-bold text-white">Diagnostic Summary: {health.rating}</h3>
-                  <p className="text-xs text-slate-300 mt-1 leading-relaxed">{health.methodology_note}</p>
+                  <span className="text-xs text-slate-400 uppercase font-semibold">Financial Health Score</span>
+                  <div className="text-4xl font-bold text-blue-400 mt-1">{health.overall_score} / 100</div>
+                  <p className="text-xs text-slate-300 mt-2 font-medium">Diagnostic Rating: <span className="text-emerald-400 font-bold">{health.rating}</span></p>
+                </div>
+                <div className="w-16 h-16 rounded-full border-4 border-blue-500 flex items-center justify-center font-bold text-white text-lg">
+                  {health.overall_score}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
-                  <h4 className="text-sm font-bold text-emerald-400 mb-3 uppercase tracking-wider">Identified Strengths</h4>
-                  <ul className="space-y-2 text-xs text-slate-300 list-disc list-inside">
-                    {health.strengths.map((s, idx) => (
-                      <li key={idx}>{s}</li>
-                    ))}
-                  </ul>
+              {health.dimensions && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {health.dimensions.map((d, idx) => (
+                    <div key={idx} className="bg-[#1a1d2e] p-4 rounded-xl border border-slate-700/50 space-y-1 text-xs">
+                      <div className="text-slate-400 font-medium truncate">{d.name}</div>
+                      <div className="text-lg font-bold text-white">{d.score} / 100</div>
+                      <div className="text-[11px] text-slate-500">{d.description}</div>
+                    </div>
+                  ))}
                 </div>
-
-                <div className="bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
-                  <h4 className="text-sm font-bold text-amber-400 mb-3 uppercase tracking-wider">Recommended Adjustments</h4>
-                  <ul className="space-y-2 text-xs text-slate-300 list-disc list-inside">
-                    {health.areas_to_improve.map((imp, idx) => (
-                      <li key={idx}>{imp}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+              )}
             </div>
           )}
         </>

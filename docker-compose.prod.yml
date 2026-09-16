@@ -1,4 +1,4 @@
-﻿services:
+services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: finpilot-postgres-prod
@@ -19,7 +19,7 @@
 
   api:
     build:
-      context: ./apps/api
+      context: ./backend
       dockerfile: Dockerfile
     container_name: finpilot-api-prod
     restart: always
@@ -49,7 +49,7 @@
 
   web:
     build:
-      context: ./apps/web
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: finpilot-web-prod
     restart: always

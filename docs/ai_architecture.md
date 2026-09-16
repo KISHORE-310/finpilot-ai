@@ -80,7 +80,7 @@ Phase 3 transforms FinPilot AI from a deterministic analytics platform into a co
 
 ## Educational Knowledge Base (RAG)
 
-5 curated markdown documents in `apps/api/knowledge/`:
+5 curated markdown documents in `backend/knowledge/`:
 
 | File | Topic | Sources |
 |------|-------|---------|
@@ -122,7 +122,7 @@ SafetyGuardrails.inspect_query(message):
 
 ## Model Configuration
 
-`apps/api/app/ai/config.py` — `AISettings` reads from environment:
+`backend/app/ai/config.py` — `AISettings` reads from environment:
 - `LLM_PROVIDER`: `openai` (default) or `mock`
 - `LLM_MODEL`: GPT model name (default: `gpt-4o-mini`)
 - `OPENAI_API_KEY`: Required for live OpenAI. If unset, falls back to deterministic mock.

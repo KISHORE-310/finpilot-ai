@@ -651,3 +651,105 @@ export interface AIHealthResponse {
   knowledge_docs_count: number;
   provider: string;
 }
+
+// ──────────────────────────────────────────────
+// Calculators & Financial Simulators
+// ──────────────────────────────────────────────
+export interface TaxRegimeBreakdown {
+  gross_income: string | number;
+  total_deductions_exemptions: string | number;
+  standard_deduction: string | number;
+  taxable_income: string | number;
+  slab_tax: string | number;
+  rebate_87a: string | number;
+  tax_after_rebate: string | number;
+  health_education_cess_4pct: string | number;
+  total_tax_liability: string | number;
+  effective_tax_rate_pct: string | number;
+  monthly_take_home_pay: string | number;
+}
+
+export interface TaxCalculatorRequest {
+  financial_year?: string;
+  gross_annual_income: number;
+  basic_salary?: number;
+  hra_received?: number;
+  rent_paid_annual?: number;
+  is_metro_city?: boolean;
+  section_80c?: number;
+  section_80d?: number;
+  section_80ccd_1b?: number;
+  home_loan_interest_24b?: number;
+  other_exemptions?: number;
+}
+
+export interface TaxCalculatorResponse {
+  financial_year: string;
+  recommended_regime: "NEW" | "OLD";
+  tax_savings_with_recommended: string | number;
+  new_regime: TaxRegimeBreakdown;
+  old_regime: TaxRegimeBreakdown;
+  summary_insight: string;
+}
+
+export interface YearlyGrowthRow {
+  year_index: number;
+  age: number;
+  annual_investment: string | number;
+  portfolio_value: string | number;
+  annual_expenses_inflated: string | number;
+  is_fire_achieved: boolean;
+}
+
+export interface FIRECalculatorRequest {
+  current_age: number;
+  target_retirement_age: number;
+  life_expectancy_age?: number;
+  current_annual_expenses: number;
+  current_invested_net_worth: number;
+  monthly_sip_contribution: number;
+  annual_sip_step_up_pct: number;
+  expected_inflation_pct: number;
+  pre_retirement_return_pct: number;
+  post_retirement_return_pct?: number;
+  safe_withdrawal_rate_pct: number;
+}
+
+export interface FIRECalculatorResponse {
+  years_to_target_age: number;
+  future_annual_expense_at_fire: string | number;
+  standard_fire_target_corpus: string | number;
+  lean_fire_target_corpus: string | number;
+  fat_fire_target_corpus: string | number;
+  coast_fire_target_corpus: string | number;
+  projected_corpus_at_target_age: string | number;
+  is_on_track_at_target_age: boolean;
+  corpus_shortfall_or_surplus: string | number;
+  recommended_monthly_sip: string | number;
+  estimated_fire_age: number | null;
+  trajectory_sample: YearlyGrowthRow[];
+  summary_insight: string;
+}
+
+export interface LoanPrepaymentRequest {
+  loan_principal: number;
+  annual_interest_rate_pct: number;
+  loan_tenure_years: number;
+  extra_monthly_payment: number;
+  annual_lump_sum_prepayment: number;
+}
+
+export interface LoanPrepaymentResponse {
+  standard_monthly_emi: string | number;
+  standard_total_interest: string | number;
+  standard_total_payment: string | number;
+  standard_tenure_months: number;
+  with_prepayment_total_interest: string | number;
+  with_prepayment_total_payment: string | number;
+  with_prepayment_tenure_months: number;
+  total_interest_saved: string | number;
+  tenure_reduction_months: number;
+  tenure_reduction_years: string | number;
+  summary_insight: string;
+}
+

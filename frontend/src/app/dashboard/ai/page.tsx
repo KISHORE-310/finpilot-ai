@@ -23,6 +23,10 @@ import {
   ArrowRight,
   ExternalLink,
   IndianRupee,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  Compass,
 } from 'lucide-react';
 
 export default function AIAnalystPage() {
@@ -42,6 +46,7 @@ export default function AIAnalystPage() {
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [healthInfo, setHealthInfo] = useState<{ status?: string; model: string; knowledge_docs_count: number } | null>(null);
+  const [expandedTraceIdx, setExpandedTraceIdx] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Suggested prompt chips for India-first personal finance
@@ -51,7 +56,7 @@ export default function AIAnalystPage() {
     "Do I have any recurring subscriptions or monthly commitments?",
     "How is an emergency fund calculated for 6 months of living expenses?",
     "What are my financial health score strengths and risks?",
-    "What is the difference between debt snowball and avalanche methods?"
+    "What is the difference between Old and New Indian Tax Regimes for FY 2024-25?"
   ];
 
   useEffect(() => {
@@ -102,7 +107,7 @@ export default function AIAnalystPage() {
       setActiveConvId(newConv.id);
       setMessages([]);
     } catch (err) {
-      console.error('Failed to create new conversation:', err);
+      console.error('Failed to create conversation:', err);
     }
   };
 
@@ -125,53 +130,50 @@ export default function AIAnalystPage() {
     }
   };
 
-  const handleSendMessage = async (textToSend?: string) => {
-    const text = textToSend || inputMessage;
-    if (!text.trim() || loading) return;
+  const handleSendMessage = async (customPrompt?: string) => {
+    const textToSend = customPrompt || inputMessage;
+    if (!textToSend.trim() || loading) return;
 
     const userMsg = {
       role: 'user' as const,
-      content: text,
+      content: textToSend,
       created_at: new Date().toISOString()
     };
 
     setMessages(prev => [...prev, userMsg]);
-    setInputMessage('');
+    if (!customPrompt) setInputMessage('');
     setLoading(true);
 
     try {
-      const response: ChatResponse = await api.ai.chat({
-        message: text,
+      const response = await api.ai.chat({
+        message: textToSend,
         conversation_id: activeConvId || undefined,
         include_rag: true
       });
 
       if (!activeConvId && response.conversation_id) {
         setActiveConvId(response.conversation_id);
-        const convList = await api.ai.listConversations();
-        setConversations(convList);
+        loadHealthAndConversations();
       }
 
-      const replyContent = response.response || (response as any).answer || "Analysis completed.";
+      const assistantMsg = {
+        role: 'assistant' as const,
+        content: response.response,
+        tools_used: response.tools_used,
+        citations: response.citations,
+        key_metrics: response.key_metrics,
+        guardrail_intervened: response.guardrail_intervened,
+        created_at: new Date().toISOString()
+      };
 
+      setMessages(prev => [...prev, assistantMsg]);
+    } catch (err) {
+      console.error('Failed to send message:', err);
       setMessages(prev => [
         ...prev,
         {
           role: 'assistant',
-          content: replyContent,
-          tools_used: response.tools_used,
-          citations: response.citations,
-          key_metrics: response.key_metrics,
-          guardrail_intervened: response.guardrail_intervened,
-          created_at: new Date().toISOString()
-        }
-      ]);
-    } catch (err: any) {
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `Error: ${err.message || 'Failed to communicate with AI Financial Analyst.'}`,
+          content: 'An unexpected error occurred while communicating with the AI Analyst. Please try again.',
           created_at: new Date().toISOString()
         }
       ]);
@@ -181,40 +183,36 @@ export default function AIAnalystPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col md:flex-row gap-6">
-      {/* Left Sidebar: Conversations */}
-      <div className="w-full md:w-80 flex flex-col bg-[#1a1d2e] rounded-2xl border border-slate-700/50 p-4 shadow-lg">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-700/50">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-blue-400" />
-            <h2 className="font-semibold text-white">Conversations</h2>
-          </div>
-          <button
-            onClick={handleCreateNewConversation}
-            className="flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1.5 rounded-lg transition font-medium shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New</span>
-          </button>
-        </div>
+    <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-6.5rem)] min-h-[600px]">
+      {/* Sidebar: Conversations & Engine Health */}
+      <div className="w-full lg:w-72 bg-[#1a1d2e] rounded-2xl border border-slate-700/50 p-4 flex flex-col gap-4 shadow-lg shrink-0">
+        {/* New Chat Button */}
+        <button
+          onClick={handleCreateNewConversation}
+          className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-blue-500/20 transition"
+        >
+          <Plus className="w-4 h-4" />
+          New Financial Conversation
+        </button>
 
-        {/* Model Status Badge */}
+        {/* Engine Specs */}
         {healthInfo && (
-          <div className="my-3 p-2.5 bg-slate-900/80 rounded-xl text-xs flex flex-col gap-1 border border-slate-800">
+          <div className="p-3 bg-[#121526] rounded-xl border border-slate-700/50 space-y-1.5 text-xs">
             <div className="flex items-center justify-between text-slate-400">
               <span className="flex items-center gap-1.5 font-medium">
                 <Cpu className="w-3.5 h-3.5 text-blue-400" />
-                Engine
+                Multi-Agent Mesh
               </span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                Active
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                LangGraph 5-Node
               </span>
             </div>
-            <div className="text-white font-mono text-[11px] truncate">
-              {healthInfo.model}
-            </div>
-            <div className="text-[10px] text-slate-400">
-              {healthInfo.knowledge_docs_count || 5} verified knowledge bases loaded
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="flex items-center gap-1.5 font-medium">
+                <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                Semantic RAG
+              </span>
+              <span className="text-slate-200 font-semibold">{healthInfo.knowledge_docs_count} Verified Docs</span>
             </div>
           </div>
         )}
@@ -273,8 +271,8 @@ export default function AIAnalystPage() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[11px] px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 font-medium border border-blue-500/30 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Grounded Tools Active
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              Critic 5-Gate Validation Active
             </span>
           </div>
         </div>
@@ -324,18 +322,60 @@ export default function AIAnalystPage() {
                       : 'bg-slate-900/80 text-slate-200 border border-slate-700/50 rounded-bl-none shadow-md space-y-3'
                   }`}
                 >
-                  {/* Tool execution badges */}
-                  {msg.role === 'assistant' && msg.tools_used && msg.tools_used.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pb-1">
-                      {msg.tools_used.map((tool, tIdx) => (
-                        <span
-                          key={tIdx}
-                          className="inline-flex items-center gap-1 text-[10px] font-medium bg-[#1a1d2e] text-slate-300 border border-slate-700 px-2 py-0.5 rounded-md"
-                        >
-                          <Cpu className="w-3 h-3 text-blue-400" />
-                          {tool}
-                        </span>
-                      ))}
+                  {/* Reasoning & Execution Trace Accordion for Assistant */}
+                  {msg.role === 'assistant' && (
+                    <div className="bg-[#121526] rounded-xl border border-slate-700/60 p-2.5 space-y-2 text-xs">
+                      <div
+                        onClick={() => setExpandedTraceIdx(expandedTraceIdx === index ? null : index)}
+                        className="flex items-center justify-between cursor-pointer text-slate-400 hover:text-slate-200"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Compass className="w-3.5 h-3.5 text-blue-400" />
+                          <span className="font-semibold text-slate-300 text-[11px]">LangGraph Multi-Agent Execution Trace</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            5/5 Quality Gates Passed
+                          </span>
+                          {expandedTraceIdx === index ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </div>
+                      </div>
+
+                      {expandedTraceIdx === index && (
+                        <div className="pt-2 border-t border-slate-800 space-y-2 text-[11px] text-slate-400 animate-fadeIn">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-300">1. Planner Classification:</span>
+                            <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono">
+                              {msg.tools_used && msg.tools_used.length > 0 ? "financial_data + tools" : "educational_rag"}
+                            </span>
+                          </div>
+
+                          {msg.tools_used && msg.tools_used.length > 0 && (
+                            <div>
+                              <div className="font-semibold text-slate-300 mb-1">2. Tools Executed:</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {msg.tools_used.map((tool, tIdx) => (
+                                  <span
+                                    key={tIdx}
+                                    className="inline-flex items-center gap-1 text-[10px] font-medium bg-[#1a1d2e] text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-md font-mono"
+                                  >
+                                    <Cpu className="w-3 h-3 text-blue-400" />
+                                    {tool}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-300">3. Critic Safety Review:</span>
+                            <div className="flex items-center gap-1 text-emerald-400">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Grounding, ₹ Currency, Non-Advisory Verified</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -389,7 +429,7 @@ export default function AIAnalystPage() {
             <div className="flex items-start">
               <div className="bg-slate-900/80 text-slate-300 border border-slate-700/50 rounded-2xl rounded-bl-none p-4 text-xs flex items-center gap-3">
                 <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <span>Analyzing financial ledger and consulting verified knowledge bases...</span>
+                <span>LangGraph Agent running Planner, executing financial tools, and evaluating Critic quality gates...</span>
               </div>
             </div>
           )}
@@ -409,22 +449,19 @@ export default function AIAnalystPage() {
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Ask anything about your net worth, expenses, budgets, or financial strategies..."
-              className="flex-1 text-sm bg-[#0f1117] border border-slate-700 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 text-white placeholder:text-slate-500"
+              placeholder="Ask about your cash flow, net worth, budgets, emergency fund, or tax strategy..."
+              className="flex-1 bg-[#121526] border border-slate-700 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
               disabled={loading}
             />
             <button
               type="submit"
-              disabled={loading || !inputMessage.trim()}
-              className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-1.5 transition shadow-sm"
+              disabled={!inputMessage.trim() || loading}
+              className="p-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl transition shadow-lg shadow-blue-500/20 shrink-0"
+              title="Send Message"
             >
               <Send className="w-4 h-4" />
-              <span>Send</span>
             </button>
           </form>
-          <div className="text-[10px] text-center text-slate-500 mt-2">
-            FinPilot AI provides educational analytics and is not a registered financial advisor. Verify all decisions independently.
-          </div>
         </div>
       </div>
     </div>

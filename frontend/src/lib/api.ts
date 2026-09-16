@@ -35,6 +35,12 @@ import {
   ConversationResponse,
   MessageItemResponse,
   AIHealthResponse,
+  TaxCalculatorRequest,
+  TaxCalculatorResponse,
+  FIRECalculatorRequest,
+  FIRECalculatorResponse,
+  LoanPrepaymentRequest,
+  LoanPrepaymentResponse,
 } from '@/types';
 
 const RAW_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
@@ -222,6 +228,15 @@ export class ApiClient {
       this.get<MessageItemResponse[]>(`/ai/conversations/${id}/messages`),
     deleteConversation: (id: string) =>
       this.delete<void>(`/ai/conversations/${id}`),
+  };
+
+  calculators = {
+    calculateTax: (data: TaxCalculatorRequest) =>
+      this.post<TaxCalculatorResponse>('/calculators/tax', data),
+    calculateFIRE: (data: FIRECalculatorRequest) =>
+      this.post<FIRECalculatorResponse>('/calculators/fire', data),
+    calculateLoanPrepayment: (data: LoanPrepaymentRequest) =>
+      this.post<LoanPrepaymentResponse>('/calculators/loan-prepayment', data),
   };
 }
 

@@ -1,4 +1,4 @@
-﻿import time
+import time
 from typing import Any, Dict
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +26,7 @@ from app.api.routes import (
     analytics_router,
     alerts_router,
     ai_router,
+    calculators_router,
 )
 
 app = FastAPI(
@@ -114,6 +115,7 @@ app.include_router(dashboard_router, prefix=api_v1)
 app.include_router(analytics_router, prefix=api_v1)
 app.include_router(alerts_router, prefix=api_v1)
 app.include_router(ai_router, prefix=api_v1)
+app.include_router(calculators_router, prefix=api_v1)
 
 
 # 7. Production Health & Readiness Probes

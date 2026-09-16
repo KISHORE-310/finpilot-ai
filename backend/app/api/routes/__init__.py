@@ -13,6 +13,7 @@ from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.analytics import router as analytics_router
 from app.api.routes.alerts import router as alerts_router
 from app.api.routes.ai import router as ai_router
+from app.api.routes.calculators import router as calculators_router
 
 __all__ = [
     "auth_router",
@@ -30,4 +31,5 @@ __all__ = [
     "analytics_router",
     "alerts_router",
     "ai_router",
+    "calculators_router",
 ]
