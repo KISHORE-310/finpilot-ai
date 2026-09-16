@@ -65,7 +65,7 @@ export default function InvestmentsPage() {
         quantity: parseFloat(quantity) || 0,
         average_cost: parseFloat(averageCost) || 0,
         current_value: parseFloat(currentValue) || 0,
-        currency: "USD",
+        currency: "INR",
       });
       setShowModal(false);
       setName("");
@@ -204,7 +204,7 @@ export default function InvestmentsPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Apple Inc., Vanguard S&P 500"
+                  placeholder="e.g. HDFC Flexi Cap Direct, Reliance Industries, Nifty 50 ETF"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
@@ -216,7 +216,7 @@ export default function InvestmentsPage() {
                   <label className="block text-xs font-medium text-slate-300 mb-1">Ticker / Symbol</label>
                   <input
                     type="text"
-                    placeholder="e.g. AAPL, VOO, BTC"
+                    placeholder="e.g. RELIANCE, HDFCBANK, NIFTYBEES"
                     value={symbol}
                     onChange={(e) => setSymbol(e.target.value)}
                     className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 uppercase"
@@ -229,11 +229,11 @@ export default function InvestmentsPage() {
                     onChange={(e) => setAssetType(e.target.value as AssetType)}
                     className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
                   >
-                    <option value="stock">Stock</option>
+                    <option value="stock">Equity Stock</option>
+                    <option value="mutual_fund">Mutual Fund / SIP</option>
                     <option value="etf">ETF</option>
+                    <option value="bond">Government / Corporate Bond (PPF/FD)</option>
                     <option value="crypto">Crypto</option>
-                    <option value="mutual_fund">Mutual Fund</option>
-                    <option value="bond">Bond</option>
                     <option value="real_estate">Real Estate</option>
                     <option value="other">Other</option>
                   </select>
@@ -254,24 +254,24 @@ export default function InvestmentsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Avg Cost ($)</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Avg Cost (₹)</label>
                   <input
                     type="number"
                     step="0.01"
                     required
-                    placeholder="150.00"
+                    placeholder="2500.00"
                     value={averageCost}
                     onChange={(e) => setAverageCost(e.target.value)}
                     className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Total Value ($)</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Total Value (₹)</label>
                   <input
                     type="number"
                     step="0.01"
                     required
-                    placeholder="1750.00"
+                    placeholder="28000.00"
                     value={currentValue}
                     onChange={(e) => setCurrentValue(e.target.value)}
                     className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"

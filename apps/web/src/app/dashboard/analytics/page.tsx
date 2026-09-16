@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { formatCurrency } from "@/lib/utils";
 import {
   AnomalyResponse,
   CashFlowResponse,
@@ -101,16 +102,6 @@ export default function AnalyticsPage() {
     } catch (err: any) {
       alert("Failed to capture net worth snapshot: " + err.message);
     }
-  };
-
-  const formatCurrency = (val: string | number) => {
-    const num = typeof val === "string" ? parseFloat(val) : val;
-    if (isNaN(num)) return "$0.00";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-    }).format(num);
   };
 
   const tabs: { id: AnalyticsTab; label: string }[] = [

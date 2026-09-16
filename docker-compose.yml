@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: finpilot-postgres
     restart: unless-stopped
     environment:
@@ -37,6 +37,10 @@ services:
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
       ENVIRONMENT: development
       LOG_LEVEL: INFO
+      # Phase 4 optional LangSmith tracing
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-finpilot-ai}
     ports:
       - "8000:8000"
     volumes:

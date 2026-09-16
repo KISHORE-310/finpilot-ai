@@ -1,3 +1,4 @@
+import json
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, desc
@@ -21,6 +22,27 @@ from app.ai.schemas.chat import (
 router = APIRouter(prefix="/ai", tags=["AI Financial Analyst"])
 
 
+def _to_message_item_response(m: Message) -> MessageItemResponse:
+    tools_used = []
+    citations = []
+    if m.metadata_json:
+        try:
+            meta = json.loads(m.metadata_json)
+            tools_used = meta.get("tools_used", [])
+            citations = meta.get("citations", [])
+        except Exception:
+            pass
+    return MessageItemResponse(
+        id=m.id,
+        role=m.role,
+        content=m.content,
+        metadata_json=m.metadata_json,
+        tools_used=tools_used,
+        citations=citations,
+        created_at=m.created_at,
+    )
+
+
 @router.get("/health", response_model=AIHealthResponse)
 async def get_ai_health():
     """Safe AI configuration health check without revealing secrets or keys."""
@@ -30,6 +52,7 @@ async def get_ai_health():
         provider=ai_settings.LLM_PROVIDER,
         model=ai_settings.LLM_MODEL,
         tools_count=13,
+        knowledge_docs_count=len(docs),
         rag_documents_count=len(docs),
         rate_limit_per_minute=ai_settings.RATE_LIMIT_REQUESTS_PER_MINUTE,
     )
@@ -135,8 +158,34 @@ async def get_conversation(
         title=conv.title,
         created_at=conv.created_at,
         updated_at=conv.updated_at,
-        messages=[MessageItemResponse.model_validate(m) for m in messages],
+        messages=[_to_message_item_response(m) for m in messages],
     )
+
+
+@router.get("/conversations/{conversation_id}/messages", response_model=List[MessageItemResponse])
+async def list_conversation_messages(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lists messages for a conversation thread."""
+    stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == str(current_user.id),
+    )
+    res = await db.execute(stmt)
+    conv = res.scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    msg_stmt = (
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.asc())
+    )
+    msg_res = await db.execute(msg_stmt)
+    messages = list(msg_res.scalars().all())
+    return [_to_message_item_response(m) for m in messages]
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=ChatResponse)

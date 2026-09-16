@@ -14,8 +14,19 @@ class AISettings(BaseSettings):
     MAX_CONVERSATION_HISTORY_MESSAGES: int = 10
     MAX_TRANSACTION_SEARCH_LIMIT: int = 20
 
-    RAG_TOP_K: int = 3
+    RAG_TOP_K: int = 5  # Phase 4: upgraded from 3
+
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = 30
+
+    # Phase 4: LangGraph multi-agent settings
+    MAX_GRAPH_ITERATIONS: int = 5
+    EMBEDDING_PROVIDER: str = "mock"  # openai, mock
+
+    # Phase 4: LangSmith tracing (all optional — app works without these)
+    LANGSMITH_TRACING: bool = False
+    LANGSMITH_API_KEY: Optional[str] = None
+    LANGSMITH_PROJECT: str = "finpilot-ai"
+    LANGSMITH_ENDPOINT: str = "https://api.smith.langchain.com"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -24,6 +35,10 @@ class AISettings(BaseSettings):
         if self.LLM_PROVIDER == "mock":
             return True
         return bool(self.LLM_API_KEY)
+
+    @property
+    def langsmith_enabled(self) -> bool:
+        return self.LANGSMITH_TRACING and bool(self.LANGSMITH_API_KEY)
 
 
 ai_settings = AISettings()

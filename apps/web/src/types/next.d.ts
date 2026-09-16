@@ -37,3 +37,8 @@ declare module "next/link" {
 declare module "next/font/google" {
   export function Inter(options?: { subsets?: string[] }): { className: string };
 }
+
+declare module "next/dist/lib/metadata/types/metadata-interface.js" {
+  export type ResolvingMetadata = any;
+  export type ResolvingViewport = any;
+}

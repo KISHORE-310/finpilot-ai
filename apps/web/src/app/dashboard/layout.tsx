@@ -114,6 +114,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [alertSummary, setAlertSummary] = useState<AlertSummary | null>(null);
+  const [userInitial, setUserInitial] = useState("U");
 
   useEffect(() => {
     const token = localStorage.getItem("token") || localStorage.getItem("finpilot_token");
@@ -121,12 +122,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push("/login");
     } else {
       api.alerts.summary().then(setAlertSummary).catch(() => {});
+      try {
+        const storedUser = localStorage.getItem("finpilot_user");
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          const name = parsed.name || parsed.email || "U";
+          setUserInitial(name.charAt(0).toUpperCase());
+        }
+      } catch {}
     }
   }, [router, pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("finpilot_token");
+    localStorage.removeItem("finpilot_user");
     router.push("/login");
   };
 
@@ -253,7 +263,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
 
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shadow">
-              U
+              {userInitial}
             </div>
           </div>
         </header>

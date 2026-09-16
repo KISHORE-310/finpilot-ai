@@ -61,7 +61,7 @@ export default function ExpensesPage() {
         is_recurring: isRecurring,
         date: expenseDate,
         description: description || null,
-        currency: "USD",
+        currency: "INR",
       });
       setShowModal(false);
       setName("");
@@ -169,7 +169,7 @@ export default function ExpensesPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Electric Bill, Rent"
+                  placeholder="e.g. Electricity Bill, House Rent, Broadband"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
@@ -177,12 +177,12 @@ export default function ExpensesPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Amount ($)</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Amount (₹)</label>
                 <input
                   type="number"
                   step="0.01"
                   required
-                  placeholder="120.00"
+                  placeholder="2500.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
@@ -218,7 +218,7 @@ export default function ExpensesPage() {
                 <label className="block text-xs font-medium text-slate-300 mb-1">Description</label>
                 <input
                   type="text"
-                  placeholder="e.g. Monthly utilities, internet service"
+                  placeholder="e.g. Monthly utilities, Jio Fiber, Society maintenance"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"

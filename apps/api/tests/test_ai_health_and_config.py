@@ -11,5 +11,7 @@ async def test_ai_health_endpoint(client: AsyncClient):
     assert "model" in data
     assert "rag_documents_count" in data
     assert data["rag_documents_count"] >= 5
+    assert "knowledge_docs_count" in data
+    assert data["knowledge_docs_count"] >= 5
     assert data["provider"] in ["openai", "mock", "deterministic-mock"]
     assert data["tools_count"] == 13

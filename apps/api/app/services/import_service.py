@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 import openpyxl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.config import settings
 from app.core.errors import EntityNotFoundException, FileValidationException
 from app.db.models.account import Account
 from app.db.models.category import Category
@@ -27,6 +28,12 @@ class ImportService:
         self.tx_repo = TransactionRepository(session)
 
     def _parse_tabular_file(self, content: bytes, filename: str) -> List[Dict[str, Any]]:
+        # Validate file size
+        if len(content) > settings.MAX_UPLOAD_SIZE_BYTES:
+            raise FileValidationException(
+                f"File size ({len(content)} bytes) exceeds the maximum allowed limit of {settings.MAX_UPLOAD_SIZE_BYTES} bytes."
+            )
+
         rows = []
         if filename.lower().endswith(".csv"):
             text = content.decode("utf-8-sig", errors="replace")
@@ -53,12 +60,12 @@ class ImportService:
             lower = col.lower()
             if not mapping.date and any(w in lower for w in ["date", "time", "posted"]):
                 mapping.date = col
-            elif not mapping.amount and any(w in lower for w in ["amount", "total", "net"]):
-                mapping.amount = col
             elif not mapping.debit and any(w in lower for w in ["debit", "withdrawal", "spent"]):
                 mapping.debit = col
             elif not mapping.credit and any(w in lower for w in ["credit", "deposit", "received"]):
                 mapping.credit = col
+            elif not mapping.amount and any(w in lower for w in ["amount", "total", "net"]):
+                mapping.amount = col
             elif not mapping.description and any(w in lower for w in ["description", "narration", "particulars", "memo", "title"]):
                 mapping.description = col
             elif not mapping.merchant and any(w in lower for w in ["merchant", "payee", "vendor"]):
@@ -120,11 +127,17 @@ class ImportService:
                 if not date_val:
                     date_val = datetime.date.today()
 
-                # 2. Parse Amount & Type
+                # 2. Parse Amount & Type with INR/USD currency symbol stripping
                 amount = Decimal("0.00")
                 tx_type = TransactionType.EXPENSE
                 if mapping.amount and row.get(mapping.amount):
-                    raw_amt = row[mapping.amount].replace("$", "").replace(",", "").strip()
+                    raw_amt = (
+                        row[mapping.amount]
+                        .replace("₹", "")
+                        .replace("$", "")
+                        .replace(",", "")
+                        .strip()
+                    )
                     amt_val = Decimal(raw_amt)
                     if amt_val < Decimal("0.00"):
                         amount = abs(amt_val)
@@ -133,10 +146,12 @@ class ImportService:
                         amount = amt_val
                         tx_type = TransactionType.INCOME if "income" in row.get(mapping.type or "", "").lower() else TransactionType.EXPENSE
                 elif mapping.debit and row.get(mapping.debit):
-                    amount = Decimal(row[mapping.debit].replace("$", "").replace(",", "").strip())
+                    raw_amt = row[mapping.debit].replace("₹", "").replace("$", "").replace(",", "").strip()
+                    amount = Decimal(raw_amt)
                     tx_type = TransactionType.EXPENSE
                 elif mapping.credit and row.get(mapping.credit):
-                    amount = Decimal(row[mapping.credit].replace("$", "").replace(",", "").strip())
+                    raw_amt = row[mapping.credit].replace("₹", "").replace("$", "").replace(",", "").strip()
+                    amount = Decimal(raw_amt)
                     tx_type = TransactionType.INCOME
 
                 # 3. Description & Merchant
@@ -166,7 +181,7 @@ class ImportService:
                     user_id=user_id,
                     account_id=account_id,
                     amount=amount,
-                    currency=account.currency or "USD",
+                    currency=account.currency or "INR",
                     transaction_type=tx_type,
                     transaction_date=date_val,
                     description=desc,
@@ -186,7 +201,7 @@ class ImportService:
                 failed += 1
                 errors.append(ImportErrorDetail(row_number=idx, reason=str(e), data=row))
 
-        # Update account balance in batch
+        # Update account balance in batch safely
         account.current_balance = Decimal(str(account.current_balance)) + balance_delta
         await self.session.commit()
 

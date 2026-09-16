@@ -18,7 +18,7 @@ from app.services.analytics import (
     InsightsEngineService,
 )
 from app.repositories.transaction_repo import TransactionRepository
-from app.ai.rag.retriever import FinancialKnowledgeRetriever
+from app.ai.rag.semantic_retriever import SemanticRetriever
 
 
 def get_financial_tools(session: AsyncSession, user_id: str) -> List[BaseTool]:
@@ -26,7 +26,7 @@ def get_financial_tools(session: AsyncSession, user_id: str) -> List[BaseTool]:
     Factory creating user-scoped LangChain tools calling Phase 2 deterministic services.
     user_id is securely bound at instantiation and NOT provided by the LLM.
     """
-    retriever = FinancialKnowledgeRetriever()
+    retriever = SemanticRetriever()
 
     @tool
     async def get_financial_overview(period: str = "this_month") -> str:

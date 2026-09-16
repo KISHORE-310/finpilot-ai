@@ -16,7 +16,7 @@ export default function AccountsPage() {
   const [name, setName] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("bank");
   const [institution, setInstitution] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("INR");
   const [currentBalance, setCurrentBalance] = useState("0.00");
 
   const loadData = useCallback(async () => {
@@ -171,7 +171,7 @@ export default function AccountsPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Main Checking"
+                  placeholder="e.g. HDFC Salary Account, SBI Savings"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
@@ -186,12 +186,12 @@ export default function AccountsPage() {
                   className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
                 >
                   <option value="bank">Bank</option>
-                  <option value="checking">Checking</option>
+                  <option value="checking">Checking / Current</option>
                   <option value="savings">Savings</option>
                   <option value="credit_card">Credit Card</option>
-                  <option value="investment">Investment / Brokerage</option>
-                  <option value="loan">Loan / Mortgage</option>
-                  <option value="cash">Cash</option>
+                  <option value="investment">Investment / Demat</option>
+                  <option value="loan">Loan / EMI</option>
+                  <option value="cash">Cash / UPI Wallet</option>
                   <option value="other">Other</option>
                 </select>
               </div>
@@ -200,7 +200,7 @@ export default function AccountsPage() {
                 <label className="block text-xs font-medium text-slate-300 mb-1">Financial Institution</label>
                 <input
                   type="text"
-                  placeholder="e.g. Chase, Vanguard, Fidelity"
+                  placeholder="e.g. HDFC Bank, ICICI Bank, SBI, Axis Bank, Zerodha"
                   value={institution}
                   onChange={(e) => setInstitution(e.target.value)}
                   className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"

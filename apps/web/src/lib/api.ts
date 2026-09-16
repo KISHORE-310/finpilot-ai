@@ -37,7 +37,8 @@ import {
   AIHealthResponse,
 } from '@/types';
 
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+const RAW_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+const BASE_ORIGIN = RAW_BASE_URL.replace(/\/api(\/v1)?$/, '');
 
 export class ApiClient {
   private getHeaders(): HeadersInit {
@@ -54,9 +55,18 @@ export class ApiClient {
   }
 
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    const path = cleanEndpoint.startsWith('/api/') ? cleanEndpoint : `/api/v1${cleanEndpoint}`;
-    const url = `${BASE_URL}${path}`;
+    let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    if (cleanEndpoint.startsWith('/api/v1')) {
+      cleanEndpoint = cleanEndpoint.slice('/api/v1'.length);
+    } else if (cleanEndpoint.startsWith('/api')) {
+      cleanEndpoint = cleanEndpoint.slice('/api'.length);
+    }
+    if (!cleanEndpoint.startsWith('/')) {
+      cleanEndpoint = `/${cleanEndpoint}`;
+    }
+
+    const path = cleanEndpoint === '/health' ? '/health' : `/api/v1${cleanEndpoint}`;
+    const url = `${BASE_ORIGIN}${path}`;
 
     const headers = {
       ...this.getHeaders(),
@@ -191,7 +201,7 @@ export class ApiClient {
   };
 
   alerts = {
-    list: (unreadOnly = false, limit = 50) => this.get<AlertResponse[]>(`/alerts?unread_only=false&limit=50`),
+    list: (unreadOnly = false, limit = 50) => this.get<AlertResponse[]>(`/alerts?unread_only=${unreadOnly}&limit=${limit}`),
     summary: () => this.get<AlertSummary>('/alerts/summary'),
     markRead: (id: string) => this.patch<AlertResponse>(`/alerts/${id}/read`),
     evaluate: () => this.post<AlertResponse[]>('/alerts/evaluate'),

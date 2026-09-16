@@ -22,10 +22,15 @@ export default function LoginPage() {
 
     try {
       if (isRegister) {
-        await api.post("/api/v1/auth/register", { email, password, name });
+        await api.post("/auth/register", { email, password, name });
       }
-      const data = await api.post<{ access_token: string }>("/api/v1/auth/login", { email, password });
+      const data = await api.post<{ access_token: string }>("/auth/login", { email, password });
       localStorage.setItem("token", data.access_token);
+      localStorage.setItem("finpilot_token", data.access_token);
+      try {
+        const me = await api.get<any>("/auth/me");
+        if (me) localStorage.setItem("finpilot_user", JSON.stringify(me));
+      } catch {}
       router.push("/dashboard");
     } catch (err: unknown) {
       const e = err as { message?: string };

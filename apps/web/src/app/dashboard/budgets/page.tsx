@@ -49,7 +49,7 @@ export default function BudgetsPage() {
         category_id: categoryId || null,
         period,
         start_date: startDate,
-        currency: "USD",
+        currency: "INR",
       });
       setShowModal(false);
       setName("");
@@ -171,7 +171,7 @@ export default function BudgetsPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Monthly Dining Out, Groceries"
+                  placeholder="e.g. Monthly Groceries & Dining, Electricity"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
@@ -180,12 +180,12 @@ export default function BudgetsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Limit Amount ($)</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Limit Amount (₹)</label>
                   <input
                     type="number"
                     step="0.01"
                     required
-                    placeholder="500.00"
+                    placeholder="15000.00"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"

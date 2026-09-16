@@ -5,12 +5,11 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   async rewrites() {
+    const target = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://api:8000/api/v1';
     return [
       {
         source: '/api/v1/:path*',
-        destination: process.env.NEXT_PUBLIC_API_URL 
-          ? `${process.env.NEXT_PUBLIC_API_URL}/:path*`
-          : 'http://localhost:8000/api/v1/:path*',
+        destination: `${target.replace(/\/+$/, '')}/:path*`,
       },
     ];
   },

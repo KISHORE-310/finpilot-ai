@@ -22,7 +22,7 @@ def upgrade() -> None:
         'users',
         sa.Column('id', sa.String(length=36), nullable=False),
         sa.Column('email', sa.String(length=255), nullable=False),
-        sa.Column('hashed_password', sa.String(length=255), nullable=False),
+        sa.Column('password_hash', sa.String(length=255), nullable=False),
         sa.Column('name', sa.String(length=255), nullable=True),
         sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),

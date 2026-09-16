@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { formatCurrency } from "@/lib/utils";
 import { AnalyticsOverviewResponse, PeriodOption } from "@/types";
 
 export default function DashboardPage() {
@@ -27,16 +28,6 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchDashboard(period);
   }, [period]);
-
-  const formatCurrency = (val: string | number) => {
-    const num = typeof val === "string" ? parseFloat(val) : val;
-    if (isNaN(num)) return "$0.00";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-    }).format(num);
-  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">

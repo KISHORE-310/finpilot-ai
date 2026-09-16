@@ -88,3 +88,35 @@ async def test_chat_continues_existing_conversation(client: AsyncClient, auth_he
     assert conv_detail.status_code == 200
     detail_data = conv_detail.json()
     assert len(detail_data["messages"]) >= 4  # 2 user + 2 assistant messages
+
+@pytest.mark.asyncio
+async def test_list_conversation_messages_endpoint(client: AsyncClient, auth_headers: dict):
+    """GET /ai/conversations/{id}/messages endpoint returns message list"""
+    conv_resp = await client.post(
+        "/api/v1/ai/conversations?title=Messages+Route+Test",
+        headers=auth_headers
+    )
+    conv_id = conv_resp.json()["id"]
+
+    # Send a message
+    chat_resp = await client.post(
+        "/api/v1/ai/chat",
+        json={"message": "What is my emergency fund target?", "conversation_id": conv_id},
+        headers=auth_headers
+    )
+    assert chat_resp.status_code == 200
+
+    # Fetch messages list directly
+    msgs_resp = await client.get(
+        f"/api/v1/ai/conversations/{conv_id}/messages",
+        headers=auth_headers
+    )
+    assert msgs_resp.status_code == 200
+    msgs_data = msgs_resp.json()
+    assert isinstance(msgs_data, list)
+    assert len(msgs_data) >= 2  # user + assistant
+    assert msgs_data[0]["role"] == "user"
+    assert msgs_data[1]["role"] == "assistant"
+    assert "content" in msgs_data[0]
+    assert "tools_used" in msgs_data[1]
+

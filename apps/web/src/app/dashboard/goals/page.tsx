@@ -46,7 +46,7 @@ export default function GoalsPage() {
         current_amount: parseFloat(currentAmount) || 0,
         target_date: targetDate || null,
         notes: notes || null,
-        currency: "USD",
+        currency: "INR",
       });
       setShowModal(false);
       setName("");
@@ -166,7 +166,7 @@ export default function GoalsPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 6-Month Emergency Fund, Down Payment"
+                  placeholder="e.g. 6-Month Emergency Fund, PPF Corpus, Home Down Payment"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
@@ -181,11 +181,11 @@ export default function GoalsPage() {
                   className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
                 >
                   <option value="emergency_fund">Emergency Fund</option>
-                  <option value="retirement">Retirement</option>
+                  <option value="retirement">Retirement / NPS</option>
                   <option value="home">Home / Down Payment</option>
                   <option value="vacation">Vacation / Travel</option>
                   <option value="car">Vehicle</option>
-                  <option value="debt_payoff">Debt Payoff</option>
+                  <option value="debt_payoff">Debt Payoff / Loan Prepayment</option>
                   <option value="education">Education</option>
                   <option value="other">Other</option>
                 </select>
@@ -193,19 +193,19 @@ export default function GoalsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Target Amount ($)</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Target Amount (₹)</label>
                   <input
                     type="number"
                     step="0.01"
                     required
-                    placeholder="10000.00"
+                    placeholder="500000.00"
                     value={targetAmount}
                     onChange={(e) => setTargetAmount(e.target.value)}
                     className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Current Saved ($)</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Current Saved (₹)</label>
                   <input
                     type="number"
                     step="0.01"

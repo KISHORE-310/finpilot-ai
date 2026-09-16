@@ -61,7 +61,7 @@ export default function IncomePage() {
         is_recurring: isRecurring,
         date: incomeDate,
         description: description || null,
-        currency: "USD",
+        currency: "INR",
       });
       setShowModal(false);
       setAmount("");
@@ -180,12 +180,12 @@ export default function IncomePage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Amount ($)</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Amount (₹)</label>
                 <input
                   type="number"
                   step="0.01"
                   required
-                  placeholder="5000.00"
+                  placeholder="85000.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
@@ -221,7 +221,7 @@ export default function IncomePage() {
                 <label className="block text-xs font-medium text-slate-300 mb-1">Description</label>
                 <input
                   type="text"
-                  placeholder="e.g. Monthly Paycheck, Bonus"
+                  placeholder="e.g. Monthly Salary, Freelance Client Invoice, Dividend Payout"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"

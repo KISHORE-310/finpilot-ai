@@ -11,6 +11,7 @@ export default function TransactionsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -31,6 +32,7 @@ export default function TransactionsPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const queryParams = new URLSearchParams();
       if (selectedType) queryParams.set("transaction_type", selectedType);
       if (selectedAccountId) queryParams.set("account_id", selectedAccountId);
@@ -43,19 +45,20 @@ export default function TransactionsPage() {
         api.get<Category[]>("/categories"),
       ]);
 
-      setTransactions(txRes.items || []);
-      setTotal(txRes.total || 0);
-      setAccounts(accs);
-      setCategories(cats);
-      if (!accountId && accs.length > 0) {
+      setTransactions(txRes?.items || []);
+      setTotal(txRes?.total || 0);
+      setAccounts(accs || []);
+      setCategories(cats || []);
+      if ((!accountId || !accs.some((a) => a.id === accountId)) && accs.length > 0) {
         setAccountId(accs[0].id);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load transactions", err);
+      setError(err?.message || "Failed to load transactions.");
     } finally {
       setLoading(false);
     }
-  }, [selectedType, selectedAccountId, search]);
+  }, [selectedType, selectedAccountId, search, accountId]);
 
   useEffect(() => {
     loadData();
@@ -63,13 +66,17 @@ export default function TransactionsPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!accountId) {
+      alert("Please select or create an account first.");
+      return;
+    }
     try {
       setSubmitting(true);
       await api.post("/transactions", {
         account_id: accountId,
         category_id: categoryId || null,
         amount: parseFloat(amount),
-        currency: "USD",
+        currency: "INR",
         transaction_type: txType,
         transaction_date: txDate,
         description,
@@ -80,8 +87,8 @@ export default function TransactionsPage() {
       setDescription("");
       setMerchantName("");
       await loadData();
-    } catch (err) {
-      alert("Failed to create transaction.");
+    } catch (err: any) {
+      alert(err?.message || "Failed to create transaction.");
     } finally {
       setSubmitting(false);
     }
@@ -92,8 +99,8 @@ export default function TransactionsPage() {
     try {
       await api.delete(`/transactions/${id}`);
       await loadData();
-    } catch (err) {
-      alert("Failed to delete transaction");
+    } catch (err: any) {
+      alert(err?.message || "Failed to delete transaction");
     }
   };
 
@@ -105,12 +112,23 @@ export default function TransactionsPage() {
           <p className="text-slate-400 text-sm mt-1">Transaction ledger and account balance synchronization ({total} records)</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            if (accounts.length > 0 && !accountId) {
+              setAccountId(accounts[0].id);
+            }
+            setShowModal(true);
+          }}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition shadow-sm"
         >
           <span>+ Add Transaction</span>
         </button>
       </div>
+
+      {error && (
+        <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Filters Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#1a1d2e] p-4 rounded-xl border border-slate-700/50">
@@ -212,99 +230,114 @@ export default function TransactionsPage() {
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-[#1a1d2e] border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <h2 className="text-xl font-bold text-white mb-4">Add Transaction</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Account</label>
-                <select
-                  required
-                  value={accountId}
-                  onChange={(e) => setAccountId(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
-                >
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
+            {accounts.length === 0 ? (
+              <div className="text-sm text-slate-300 space-y-4">
+                <p>No accounts found. You need to create an account first before adding transactions.</p>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            ) : (
+              <form onSubmit={handleCreate} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Type</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Account</label>
                   <select
-                    value={txType}
-                    onChange={(e) => setTxType(e.target.value as TransactionType)}
+                    required
+                    value={accountId}
+                    onChange={(e) => setAccountId(e.target.value)}
                     className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
                   >
-                    <option value="expense">Expense</option>
-                    <option value="income">Income</option>
-                    <option value="transfer">Transfer</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
                   </select>
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Type</label>
+                    <select
+                      value={txType}
+                      onChange={(e) => setTxType(e.target.value as TransactionType)}
+                      className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="expense">Expense</option>
+                      <option value="income">Income</option>
+                      <option value="transfer">Transfer</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Amount (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      placeholder="0.00"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Amount ($)</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Date</label>
                   <input
-                    type="number"
-                    step="0.01"
+                    type="date"
                     required
-                    placeholder="0.00"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    value={txDate}
+                    onChange={(e) => setTxDate(e.target.value)}
                     className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Date</label>
-                <input
-                  type="date"
-                  required
-                  value={txDate}
-                  onChange={(e) => setTxDate(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Description</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Swiggy Order, BigBasket, Monthly Salary"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Description</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Grocery Store, Paycheck"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Merchant / Entity (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Swiggy, Zomato, Amazon India, HDFC Bank"
+                    value={merchantName}
+                    onChange={(e) => setMerchantName(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Merchant / Entity (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Trader Joe's, Apple"
-                  value={merchantName}
-                  onChange={(e) => setMerchantName(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
-                >
-                  {submitting ? "Saving..." : "Create Transaction"}
-                </button>
-              </div>
-            </form>
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
+                  >
+                    {submitting ? "Saving..." : "Create Transaction"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

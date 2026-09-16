@@ -5,16 +5,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: string | number | undefined | null, currency = 'USD'): string {
-  if (amount === undefined || amount === null) return '$0.00';
+export function formatCurrency(amount: string | number | undefined | null, currency = 'INR'): string {
+  if (amount === undefined || amount === null) return '₹0.00';
   const val = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (isNaN(val)) return '$0.00';
-  return new Intl.NumberFormat('en-US', {
+  if (isNaN(val)) return '₹0.00';
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: currency || 'USD',
+    currency: currency || 'INR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(val);
+}
+
+export function formatINR(amount: string | number | undefined | null): string {
+  return formatCurrency(amount, 'INR');
 }
 
 export function formatPercent(val: string | number | undefined | null): string {
@@ -27,5 +31,5 @@ export function formatPercent(val: string | number | undefined | null): string {
 export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
