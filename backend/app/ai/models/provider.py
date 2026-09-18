@@ -40,19 +40,35 @@ class DeterministicMockFinancialLLM(BaseChatModel):
             m = re.search(r"USER QUERY:\s*(.+)", content, re.IGNORECASE)
             if m:
                 user_query = m.group(1).splitlines()[0].strip()
-            
-            tool_name, _ = self._determine_tool(user_query.lower())
-            
-            if any(k in user_query.lower() for k in ["what is", "how to", "concept", "explain", "emergency fund", "rule"]):
-                if any(k in user_query.lower() for k in ["my", "i have", "mine", "spending", "income", "balance"]):
+
+            q = user_query.lower()
+            tool_name, tool_args = self._determine_tool(q)
+
+            if any(k in q for k in ["what is", "how to", "concept", "explain", "emergency fund", "rule"]):
+                if any(k in q for k in ["my", "i have", "mine", "spending", "income", "balance"]):
                     intent = "hybrid"
                 else:
                     intent = "educational"
             else:
                 intent = "financial_data"
 
-            tools_str = tool_name if tool_name else "get_financial_overview"
-            plan_response = f"INTENT: {intent}\nPLAN: Analyze user financial ledger and retrieve pertinent metrics.\nTOOLS: {tools_str}"
+            planned_tools: List[str] = [tool_name] if tool_name else ["get_financial_overview"]
+            planned_args: Dict[str, Any] = (
+                {tool_name: tool_args} if tool_name else {"get_financial_overview": {"period": "this_month"}}
+            )
+            if intent == "educational":
+                planned_tools = ["query_financial_knowledge_rag"]
+                planned_args = {"query_financial_knowledge_rag": {"query": user_query}}
+            elif intent == "hybrid":
+                planned_tools.append("query_financial_knowledge_rag")
+                planned_args["query_financial_knowledge_rag"] = {"query": user_query}
+
+            plan_response = (
+                f"INTENT: {intent}\n"
+                f"PLAN: Analyze user financial ledger and retrieve pertinent metrics.\n"
+                f"TOOLS: {', '.join(planned_tools)}\n"
+                f"ARGS: {json.dumps(planned_args)}"
+            )
             return ChatResult(generations=[ChatGeneration(message=AIMessage(content=plan_response))])
 
         # 2. Handle LangGraph Critic Node Prompt
@@ -72,7 +88,7 @@ class DeterministicMockFinancialLLM(BaseChatModel):
             tool_outputs_raw = m_tools.group(1).strip() if m_tools else "{}"
             try:
                 data = json.loads(tool_outputs_raw)
-            except Exception:
+            except (ValueError, TypeError):
                 data = {}
 
             # Synthesize draft from tool results
@@ -84,7 +100,7 @@ class DeterministicMockFinancialLLM(BaseChatModel):
             tool_name = last_msg.name or "tool"
             try:
                 data = json.loads(last_msg.content)
-            except Exception:
+            except (ValueError, TypeError):
                 data = {"raw": last_msg.content}
 
             answer = self._synthesize_tool_answer(tool_name, data, messages)
@@ -112,13 +128,18 @@ class DeterministicMockFinancialLLM(BaseChatModel):
         return ChatResult(generations=[gen])
 
     def _determine_tool(self, query: str) -> Tuple[Optional[str], Dict[str, Any]]:
+        # Educational-only queries route to RAG before personal-data matching,
+        # unless they clearly reference the user's own ledger.
+        if any(k in query for k in ["what is", "how to", "concept", "explain", "rule of thumb"]) \
+                and not any(k in query for k in ["my", "i have", "mine", "spending", "income", "balance", "account"]):
+            return "query_financial_knowledge_rag", {"query": query}
         if "overview" in query or "financial position" in query:
             return "get_financial_overview", {"period": "this_month"}
         if "cash flow" in query or "savings rate" in query or "save" in query or "saving" in query:
             return "get_cash_flow", {"period": "this_month", "granularity": "monthly"}
         if "budget" in query:
             return "get_budget_status", {}
-        if "goal" in query or "emergency fund" in query and "how much" in query:
+        if "goal" in query or "emergency fund" in query:
             return "get_goal_status", {}
         if "invest" in query or "portfolio" in query or "p&l" in query or "return" in query:
             return "get_investment_summary", {}
@@ -134,8 +155,6 @@ class DeterministicMockFinancialLLM(BaseChatModel):
             return "get_spending_analysis", {"period": "this_month"}
         if "health" in query or "score" in query:
             return "get_financial_health", {}
-        if "what is" in query or "how to" in query or "concept" in query or "explain" in query:
-            return "query_financial_knowledge_rag", {"query": query}
 
         # Default fallback to overview
         return "get_financial_overview", {"period": "this_month"}
@@ -203,8 +222,8 @@ class DeterministicMockFinancialLLM(BaseChatModel):
 
         if "get_financial_health" in tool_data:
             d = tool_data["get_financial_health"]
-            score = d.get("score", "0")
-            grade = d.get("grade", "N/A")
+            score = d.get("overall_score", "0")
+            grade = d.get("rating", "N/A")
             parts.append(f"Your overall financial health score is {score}/100 (Grade: {grade}).")
 
         if "query_financial_knowledge_rag" in tool_data:
@@ -269,6 +288,11 @@ class DeterministicMockFinancialLLM(BaseChatModel):
             assets = current.get("total_assets", "0.00")
             liab = current.get("total_liabilities", "0.00")
             return f"Your current net worth is ₹{nw}, consisting of ₹{assets} in total assets and ₹{liab} in liabilities."
+
+        elif tool_name == "get_financial_health":
+            score = data.get("overall_score", "0")
+            grade = data.get("rating", "N/A")
+            return f"Your overall financial health score is {score}/100 (Grade: {grade})."
 
         elif tool_name == "query_financial_knowledge_rag":
             ctx = data.get("educational_context", "")

@@ -1,8 +1,13 @@
-# AI Architecture — Phase 3: LangChain Financial Analyst
+# AI Architecture — Phase 4: LangGraph Multi-Agent Financial Analyst
+
+> **Note**: The current production implementation is the Phase 4 LangGraph multi-agent graph
+> (5-node cyclic graph: planner → analyst → critic → final). See
+> [langgraph_architecture.md](langgraph_architecture.md) for the canonical architecture.
+> This document describes the evolution from the original Phase 3 single-agent design.
 
 ## Overview
 
-Phase 3 transforms FinPilot AI from a deterministic analytics platform into a conversational AI financial analyst. The architecture is deliberately bounded: the LLM **never** directly queries the database, never performs arithmetic on raw ledger data, and cannot execute financial transactions.
+The AI Analyst transforms FinPilot AI from a deterministic analytics platform into a conversational AI financial analyst. The architecture is deliberately bounded: the LLM **never** directly queries the database, never performs arithmetic on raw ledger data, and cannot execute financial transactions.
 
 ## Core Design Principles
 
@@ -90,7 +95,7 @@ Phase 3 transforms FinPilot AI from a deterministic analytics platform into a co
 | `investing_basics_and_diversification.md` | Portfolio Diversification | SEC Investor.gov |
 | `financial_health_and_goals.md` | SMART Goals & Net Worth | Federal Reserve |
 
-Retrieval is deterministic keyword + topic overlap scoring. No vector database or embeddings (introduced in Phase 4).
+Retrieval is deterministic keyword + topic overlap scoring, now augmented by vector embeddings and a semantic retriever (Phase 4) with deterministic `MockEmbeddingProvider` for offline/tests and optional OpenAI embeddings.
 
 ## Safety Architecture
 
@@ -125,10 +130,10 @@ SafetyGuardrails.inspect_query(message):
 `backend/app/ai/config.py` — `AISettings` reads from environment:
 - `LLM_PROVIDER`: `openai` (default) or `mock`
 - `LLM_MODEL`: GPT model name (default: `gpt-4o-mini`)
-- `OPENAI_API_KEY`: Required for live OpenAI. If unset, falls back to deterministic mock.
+- `LLM_API_KEY`: Required for live OpenAI. If unset (or when `LLM_PROVIDER=mock`), falls back to deterministic mock.
 - `MAX_TOOL_CALLS_PER_REQUEST`: Maximum tool iterations (default: 5)
 
 ## Phase Boundaries
 
-- **Phase 3 (this phase)**: LangChain tool calling, conversation memory, keyword RAG, safety guardrails
-- **Phase 4 (next)**: LangGraph multi-agent graphs (planner/critic), vector embeddings, advanced RAG
+- **Phase 3 (completed)**: LangChain tool calling, conversation memory, keyword RAG, safety guardrails
+- **Phase 4 (this phase, implemented)**: LangGraph multi-agent graphs (planner/critic), vector embeddings, advanced RAG

@@ -18,6 +18,7 @@ from app.services.analytics import (
     InsightsEngineService,
 )
 from app.repositories.transaction_repo import TransactionRepository
+from app.repositories.category_repo import CategoryRepository
 from app.ai.rag.semantic_retriever import SemanticRetriever
 
 
@@ -85,12 +86,47 @@ def get_financial_tools(session: AsyncSession, user_id: str) -> List[BaseTool]:
         category: Optional[str] = None,
         limit: int = 10,
     ) -> str:
-        """Searches recent expense or income transactions matching keyword or category. Max 20 results."""
+        """Searches recent expense or income transactions matching the keyword in the description/merchant, the category name, or both. Max 20 results."""
         capped_limit = min(20, max(1, limit))
-        service = SpendingAnalyticsService(session)
         start_d, end_d, _, _ = get_period_dates("last_3_months")
-        res = await service.get_largest_transactions(user_id, start_d, end_d, capped_limit)
-        return res.model_dump_json()
+
+        category_id = None
+        if category:
+            category_repo = CategoryRepository(session)
+            cat = await category_repo.get_by_name(category.strip(), user_id)
+            if not cat:
+                return json.dumps({"message": f"No category named '{category}' found for the current user."})
+            category_id = cat.id
+
+        tx_repo = TransactionRepository(session)
+        transactions, _ = await tx_repo.filter_transactions(
+            user_id=user_id,
+            start_date=start_d,
+            end_date=end_d,
+            category_id=category_id,
+            search=keyword,
+            sort_by="transaction_date",
+            sort_order="desc",
+            page_size=capped_limit,
+        )
+
+        if not transactions:
+            return json.dumps({"message": "No matching transactions found in the last 3 months."})
+
+        results = []
+        for tx in transactions:
+            results.append({
+                "id": tx.id,
+                "date": str(tx.transaction_date),
+                "amount": str(tx.amount),
+                "currency": tx.currency,
+                "type": tx.transaction_type.value,
+                "description": tx.description,
+                "merchant": tx.merchant_name,
+                "category": tx.category.name if tx.category else None,
+            })
+
+        return json.dumps({"count": len(results), "transactions": results})
 
     @tool
     async def get_budget_status() -> str:

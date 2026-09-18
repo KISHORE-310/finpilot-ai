@@ -12,6 +12,9 @@ class GoalType(str, enum.Enum):
     PURCHASE = "purchase"
     EMERGENCY_FUND = "emergency_fund"
     RETIREMENT = "retirement"
+    VACATION = "vacation"
+    EDUCATION = "education"
+    WEDDING = "wedding"
     OTHER = "other"
 
 
@@ -35,7 +38,7 @@ class FinancialGoal(Base, TimestampMixin):
     current_amount = Column(Numeric(18, 2), nullable=False, default=0.00)
     target_date = Column(Date, nullable=True)
     status = Column(Enum(GoalStatus, native_enum=False, length=20), nullable=False, default=GoalStatus.IN_PROGRESS)
-    currency = Column(String(10), nullable=False, default="USD")
+    currency = Column(String(10), nullable=False, default="INR")
     color = Column(String(20), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
 

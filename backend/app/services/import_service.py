@@ -122,7 +122,7 @@ class ImportService:
                     try:
                         date_val = datetime.datetime.strptime(date_str.split()[0], fmt).date()
                         break
-                    except Exception:
+                    except (ValueError, TypeError):
                         continue
                 if not date_val:
                     date_val = datetime.date.today()

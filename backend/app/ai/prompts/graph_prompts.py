@@ -27,6 +27,9 @@ Respond in this EXACT format (no other text):
 INTENT: <financial_data|educational|hybrid>
 PLAN: <one sentence describing what you will do>
 TOOLS: <comma-separated tool names, or NONE>
+ARGS: <a single-line JSON object mapping each tool name to its arguments, or {} if none>
+
+Example ARGS: {"get_cash_flow": {"period": "this_month"}, "get_category_spending": {"category_name": "food"}}
 """
 
 ANALYST_PROMPT = """You are the Analyst Agent of FinPilot AI. Your role is to synthesize financial tool results into a clear, grounded response.

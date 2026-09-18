@@ -1,1 +1,0 @@
-const fs = require('fs'); const path = require('path'); module.exports = function(relPath, b64) { const fullPath = path.join(process.cwd(), relPath); fs.mkdirSync(path.dirname(fullPath), { recursive: true }); fs.writeFileSync(fullPath, Buffer.from(b64, 'base64').toString('utf8')); console.log('Created:', relPath); };

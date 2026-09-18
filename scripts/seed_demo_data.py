@@ -13,17 +13,19 @@ from app.db.models.user import User
 from app.db.models.account import Account, AccountType
 from app.db.models.category import Category, CategoryType
 from app.db.models.transaction import Transaction, TransactionType
-from app.db.models.income import Income, IncomeFrequency
-from app.db.models.expense import Expense, ExpenseFrequency
-from app.db.models.investment import Investment, InvestmentTransaction, AssetClass, InvestmentTxType
-from app.db.models.goal import FinancialGoal, GoalStatus
+from app.db.models.income import Income, IncomeSource
+from app.db.models.expense import Expense
+from app.db.models.investment import Investment, AssetType
+from app.db.models.investment_transaction import InvestmentTransaction, InvestmentTxType
+from app.db.models.goal import FinancialGoal, GoalStatus, GoalType
 from app.db.models.budget import Budget, BudgetPeriod
-from app.db.models.recurring import RecurringTransaction, RecurrenceInterval
+from app.db.models.recurring_transaction import RecurringTransaction, Frequency
+
 
 async def seed_data():
     print(f"Connecting to database: {settings.DATABASE_URL}...")
     engine = create_async_engine(settings.DATABASE_URL, echo=False)
-    
+
     # Create all tables directly if not using alembic
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -41,11 +43,9 @@ async def seed_data():
             print("Creating demo user: demo@finpilot.ai / Password123!")
             user = User(
                 email="demo@finpilot.ai",
-                hashed_password=get_password_hash("Password123!"),
-                full_name="Alex Morgan",
-                currency_preference="USD",
+                password_hash=get_password_hash("Password123!"),
+                name="Aarav Sharma",
                 is_active=True,
-                is_verified=True,
             )
             db.add(user)
             await db.flush()
@@ -95,15 +95,15 @@ async def seed_data():
 
         # 3. Create Accounts
         accounts_data = [
-            ("Primary Checking", AccountType.CHECKING, "Chase Bank", "USD", Decimal("8450.00"), "1001"),
-            ("High Yield Savings", AccountType.SAVINGS, "Marcus by Goldman Sachs", "USD", Decimal("35200.00"), "2045"),
-            ("Brokerage Portfolio", AccountType.INVESTMENT, "Vanguard", "USD", Decimal("78500.00"), "8891"),
-            ("Sapphire Credit Card", AccountType.CREDIT_CARD, "Chase Bank", "USD", Decimal("1240.50"), "4412"),
-            ("Cash Wallet", AccountType.CASH, "Physical Cash", "USD", Decimal("350.00"), None),
+            ("Primary Savings & Salary", AccountType.CHECKING, "HDFC Bank", "INR", Decimal("212500.00")),
+            ("Money Market Savings", AccountType.SAVINGS, "State Bank of India", "INR", Decimal("412000.00")),
+            ("Brokerage Demat", AccountType.INVESTMENT, "Zerodha", "INR", Decimal("845000.00")),
+            ("Titan Credit Card", AccountType.CREDIT_CARD, "ICICI Bank", "INR", Decimal("-41250.50")),
+            ("Cash Wallet", AccountType.CASH, "Physical Cash", "INR", Decimal("8500.00")),
         ]
 
         acc_map = {}
-        for name, acc_type, inst, curr, bal, num in accounts_data:
+        for name, acc_type, inst, curr, bal in accounts_data:
             stmt = select(Account).where(
                 Account.user_id == user_id,
                 Account.name == name
@@ -115,10 +115,9 @@ async def seed_data():
                     user_id=user_id,
                     name=name,
                     account_type=acc_type,
-                    institution_name=inst,
+                    institution=inst,
                     currency=curr,
                     current_balance=bal,
-                    account_number_mask=num,
                     is_active=True
                 )
                 db.add(acc)
@@ -126,37 +125,38 @@ async def seed_data():
             acc_map[name] = acc
 
         # 4. Create Income sources
+        today = datetime.date.today()
         income_sources = [
-            ("Senior Software Architect", Decimal("9500.00"), IncomeFrequency.MONTHLY, acc_map["Primary Checking"], cat_map["Salary"]),
-            ("Cloud Consulting Retainer", Decimal("2200.00"), IncomeFrequency.MONTHLY, acc_map["Primary Checking"], cat_map["Freelance & Consulting"]),
-            ("Quarterly Portfolio Dividends", Decimal("850.00"), IncomeFrequency.QUARTERLY, acc_map["Brokerage Portfolio"], cat_map["Investment Returns"]),
+            ("Senior Software Engineer", IncomeSource.SALARY, Decimal("250000.00"), True),
+            ("Freelance Consulting Retainer", IncomeSource.FREELANCE, Decimal("45000.00"), True),
+            ("Monthly Dividend Payout", IncomeSource.INVESTMENTS, Decimal("8000.00"), True),
         ]
-        for name, amount, freq, acc, cat in income_sources:
-            stmt = select(Income).where(Income.user_id == user_id, Income.source_name == name)
+        for name, source, amount, is_recurring in income_sources:
+            stmt = select(Income).where(Income.user_id == user_id, Income.description == name)
             res = await db.execute(stmt)
             if not res.scalar_one_or_none():
                 inc = Income(
                     user_id=user_id,
-                    source_name=name,
+                    source=source,
                     amount=amount,
-                    currency="USD",
-                    frequency=freq,
-                    category_id=cat.id if cat else None,
-                    account_id=acc.id if acc else None,
-                    start_date=datetime.date(2025, 1, 1),
-                    is_active=True
+                    currency="INR",
+                    is_recurring=is_recurring,
+                    date=today.replace(day=1),
+                    description=name,
+                    category_id=cat_map["Salary"].id,
+                    account_id=acc_map["Primary Savings & Salary"].id,
                 )
                 db.add(inc)
 
         # 5. Create Fixed Expenses
         fixed_expenses = [
-            ("Luxury Apartment Rent", Decimal("2450.00"), ExpenseFrequency.MONTHLY, acc_map["Primary Checking"], cat_map["Housing & Rent"], datetime.date(2025, 1, 1)),
-            ("High Speed Fiber Internet", Decimal("85.00"), ExpenseFrequency.MONTHLY, acc_map["Primary Checking"], cat_map["Utilities & Internet"], datetime.date(2025, 1, 5)),
-            ("Electricity & Water", Decimal("165.00"), ExpenseFrequency.MONTHLY, acc_map["Primary Checking"], cat_map["Utilities & Internet"], datetime.date(2025, 1, 12)),
-            ("Comprehensive Health & Dental", Decimal("320.00"), ExpenseFrequency.MONTHLY, acc_map["Primary Checking"], cat_map["Healthcare & Medical"], datetime.date(2025, 1, 15)),
-            ("Cloud Server Subscriptions", Decimal("60.00"), ExpenseFrequency.MONTHLY, acc_map["Sapphire Credit Card"], cat_map["Shopping & Electronics"], datetime.date(2025, 1, 20)),
+            ("2BHK Apartment Rent", Decimal("45000.00"), cat_map["Housing & Rent"].id),
+            ("Fiber Broadband + IPTV", Decimal("1500.00"), cat_map["Utilities & Internet"].id),
+            ("Electricity & Water Bill", Decimal("3800.00"), cat_map["Utilities & Internet"].id),
+            ("Family Health Insurance", Decimal("8000.00"), cat_map["Healthcare & Medical"].id),
+            ("Cloud & OTT Subscriptions", Decimal("2000.00"), cat_map["Shopping & Electronics"].id),
         ]
-        for name, amount, freq, acc, cat, s_date in fixed_expenses:
+        for name, amount, cat_id in fixed_expenses:
             stmt = select(Expense).where(Expense.user_id == user_id, Expense.name == name)
             res = await db.execute(stmt)
             if not res.scalar_one_or_none():
@@ -164,114 +164,112 @@ async def seed_data():
                     user_id=user_id,
                     name=name,
                     amount=amount,
-                    currency="USD",
-                    frequency=freq,
-                    category_id=cat.id if cat else None,
-                    account_id=acc.id if acc else None,
-                    due_date=s_date,
-                    is_active=True
+                    currency="INR",
+                    is_recurring=True,
+                    date=today.replace(day=1),
+                    description=name,
+                    category_id=cat_id,
                 )
                 db.add(exp)
 
         # 6. Create Historical Transactions (last 90 days)
-        today = datetime.date.today()
         tx_templates = [
-            ("Whole Foods Market", Decimal("142.50"), TransactionType.EXPENSE, "Groceries & Food", "Sapphire Credit Card"),
-            ("Trader Joe's", Decimal("88.20"), TransactionType.EXPENSE, "Groceries & Food", "Sapphire Credit Card"),
-            ("Blue Bottle Coffee", Decimal("7.50"), TransactionType.EXPENSE, "Dining & Restaurants", "Sapphire Credit Card"),
-            ("Sweetgreen Lunch", Decimal("18.40"), TransactionType.EXPENSE, "Dining & Restaurants", "Sapphire Credit Card"),
-            ("Uber Trip", Decimal("26.80"), TransactionType.EXPENSE, "Transportation & Auto", "Sapphire Credit Card"),
-            ("Chevron Gas", Decimal("55.00"), TransactionType.EXPENSE, "Transportation & Auto", "Sapphire Credit Card"),
-            ("Netflix & Spotify", Decimal("32.98"), TransactionType.EXPENSE, "Entertainment & Leisure", "Sapphire Credit Card"),
-            ("Amazon Marketplace", Decimal("114.20"), TransactionType.EXPENSE, "Shopping & Electronics", "Sapphire Credit Card"),
-            ("Apple Store", Decimal("199.00"), TransactionType.EXPENSE, "Shopping & Electronics", "Sapphire Credit Card"),
-            ("Delta Air Lines Flight", Decimal("420.00"), TransactionType.EXPENSE, "Travel & Vacations", "Sapphire Credit Card"),
-            ("Airbnb Stay", Decimal("340.00"), TransactionType.EXPENSE, "Travel & Vacations", "Sapphire Credit Card"),
-            ("Salary Bi-Weekly Direct Deposit", Decimal("4750.00"), TransactionType.INCOME, "Salary", "Primary Checking"),
+            ("BigBasket Weekly Groceries", Decimal("2450.00"), TransactionType.EXPENSE, "Groceries & Food", "Titan Credit Card"),
+            ("Swiggy Weekend Kitchen", Decimal("820.00"), TransactionType.EXPENSE, "Dining & Restaurants", "Titan Credit Card"),
+            ("Zomato Lunch", Decimal("460.00"), TransactionType.EXPENSE, "Dining & Restaurants", "Titan Credit Card"),
+            ("Amazon India Gadgets", Decimal("4750.00"), TransactionType.EXPENSE, "Shopping & Electronics", "Titan Credit Card"),
+            ("Reliance Digital", Decimal("18990.00"), TransactionType.EXPENSE, "Shopping & Electronics", "Titan Credit Card"),
+            ("Indian Oil Petrol", Decimal("1800.00"), TransactionType.EXPENSE, "Transportation & Auto", "Titan Credit Card"),
+            ("Uber Ride", Decimal("340.00"), TransactionType.EXPENSE, "Transportation & Auto", "Titan Credit Card"),
+            ("Netflix & Spotify India", Decimal("899.00"), TransactionType.EXPENSE, "Entertainment & Leisure", "Titan Credit Card"),
+            ("IMAX Movie Night", Decimal("1250.00"), TransactionType.EXPENSE, "Entertainment & Leisure", "Titan Credit Card"),
+            ("MakeMyTrip Flight", Decimal("14800.00"), TransactionType.EXPENSE, "Travel & Vacations", "Titan Credit Card"),
+            ("OYO Stay", Decimal("4600.00"), TransactionType.EXPENSE, "Travel & Vacations", "Titan Credit Card"),
         ]
 
+        # Salary credits via NEFT / UPI
         stmt = select(Transaction).where(Transaction.user_id == user_id)
         existing_txs = (await db.execute(stmt)).scalars().all()
         if len(existing_txs) < 20:
             print("Generating 60+ realistic transactions over the last 90 days...")
             for day_offset in range(90, 0, -3):
                 tx_date = today - datetime.timedelta(days=day_offset)
-                # Biweekly salary
-                if day_offset % 14 == 0:
+
+                # Monthly salary credit
+                if tx_date.day == 1:
                     tx = Transaction(
                         user_id=user_id,
-                        account_id=acc_map["Primary Checking"].id,
+                        account_id=acc_map["Primary Savings & Salary"].id,
                         category_id=cat_map["Salary"].id,
-                        amount=Decimal("4750.00"),
-                        currency="USD",
+                        amount=Decimal("250000.00"),
+                        currency="INR",
                         transaction_type=TransactionType.INCOME,
                         transaction_date=tx_date,
-                        description="Acme Corp Bi-Weekly Salary Direct Deposit",
-                        merchant_name="Acme Corp",
-                        is_cleared=True
+                        description="Acme India Pvt Ltd Salary Credit",
+                        merchant_name="Acme India Pvt Ltd",
+                        is_cleared=True,
                     )
                     db.add(tx)
 
                 # Monthly rent
-                if tx_date.day == 1:
+                if tx_date.day == 3:
                     tx = Transaction(
                         user_id=user_id,
-                        account_id=acc_map["Primary Checking"].id,
+                        account_id=acc_map["Primary Savings & Salary"].id,
                         category_id=cat_map["Housing & Rent"].id,
-                        amount=Decimal("2450.00"),
-                        currency="USD",
+                        amount=Decimal("45000.00"),
+                        currency="INR",
                         transaction_type=TransactionType.EXPENSE,
                         transaction_date=tx_date,
-                        description="Monthly Apartment Rent",
-                        merchant_name="Avalon Properties",
-                        is_cleared=True
+                        description="Monthly House Rent",
+                        merchant_name="DLF Residential",
+                        is_cleared=True,
                     )
                     db.add(tx)
 
-                # 2-3 random expenses
+                # 2-3 random expenses via UPI / Cards
                 for _ in range(random.randint(1, 3)):
-                    desc, base_amt, ttype, cname, aname = random.choice(tx_templates[:-1])
+                    desc, base_amt, ttype, cname, aname = random.choice(tx_templates)
                     amt_variation = base_amt * Decimal(str(round(random.uniform(0.85, 1.25), 2)))
                     tx = Transaction(
                         user_id=user_id,
                         account_id=acc_map[aname].id,
                         category_id=cat_map[cname].id,
                         amount=round(amt_variation, 2),
-                        currency="USD",
+                        currency="INR",
                         transaction_type=ttype,
                         transaction_date=tx_date,
                         description=f"{desc} #{random.randint(100, 999)}",
                         merchant_name=desc.split()[0],
-                        is_cleared=True
+                        is_cleared=True,
                     )
                     db.add(tx)
 
         # 7. Create Investments & Holdings
         investments_data = [
-            ("Vanguard Total Stock Market ETF", "VTI", AssetClass.ETF, Decimal("120.0000"), Decimal("240.50"), Decimal("275.80"), acc_map["Brokerage Portfolio"]),
-            ("Vanguard S&P 500 ETF", "VOO", AssetClass.ETF, Decimal("65.0000"), Decimal("450.00"), Decimal("512.40"), acc_map["Brokerage Portfolio"]),
-            ("Apple Inc.", "AAPL", AssetClass.STOCK, Decimal("50.0000"), Decimal("175.20"), Decimal("228.50"), acc_map["Brokerage Portfolio"]),
-            ("Microsoft Corp.", "MSFT", AssetClass.STOCK, Decimal("40.0000"), Decimal("380.00"), Decimal("445.10"), acc_map["Brokerage Portfolio"]),
-            ("Bitcoin", "BTC", AssetClass.CRYPTO, Decimal("0.3500"), Decimal("58000.00"), Decimal("64200.00"), acc_map["Brokerage Portfolio"]),
-            ("Ethereum", "ETH", AssetClass.CRYPTO, Decimal("3.2000"), Decimal("2900.00"), Decimal("3450.00"), acc_map["Brokerage Portfolio"]),
+            ("NIFTY 50 Index Fund (Direct)", "NIFTY50", AssetType.ETF, Decimal("120.0000"), Decimal("2450.00"), Decimal("3485.50")),
+            ("SENSEX Index Fund", "SENSEX", AssetType.ETF, Decimal("65.0000"), Decimal("64250.00"), Decimal("88940.00")),
+            ("Reliance Industries Ltd.", "RELIANCE", AssetType.STOCK, Decimal("50.0000"), Decimal("2450.00"), Decimal("3120.85")),
+            ("Tata Consultancy Services", "TCS", AssetType.STOCK, Decimal("40.0000"), Decimal("3450.00"), Decimal("4250.10")),
+            ("Bitcoin", "BTC", AssetType.CRYPTO, Decimal("0.0825"), Decimal("4200000.00"), Decimal("5250000.00")),
+            ("Ethereum", "ETH", AssetType.CRYPTO, Decimal("1.2000"), Decimal("220000.00"), Decimal("285000.00")),
         ]
 
-        for name, ticker, aclass, qty, cost, price, acc in investments_data:
+        for name, ticker, aclass, qty, cost, price in investments_data:
             stmt = select(Investment).where(Investment.user_id == user_id, Investment.symbol == ticker)
             res = await db.execute(stmt)
             inv = res.scalar_one_or_none()
             if not inv:
                 inv = Investment(
                     user_id=user_id,
-                    account_id=acc.id if acc else None,
+                    account_id=acc_map["Brokerage Demat"].id,
                     symbol=ticker,
                     name=name,
-                    asset_class=aclass,
+                    asset_type=aclass,
                     quantity=qty,
-                    cost_basis=cost,
-                    current_price=price,
-                    currency="USD",
-                    is_active=True
+                    average_cost=cost,
+                    current_value=price,
+                    currency="INR",
                 )
                 db.add(inv)
                 await db.flush()
@@ -285,89 +283,88 @@ async def seed_data():
                     price_per_unit=cost,
                     total_amount=qty * cost,
                     transaction_date=datetime.date(2024, 6, 15),
-                    notes="Initial portfolio allocation"
+                    notes="Initial SIP and lumpsum allocation",
                 )
                 db.add(itx)
 
         # 8. Create Financial Goals
         goals_data = [
-            ("Emergency Fund 6-Months", Decimal("35000.00"), Decimal("35200.00"), datetime.date(2025, 12, 31), GoalStatus.COMPLETED, "#10B981"),
-            ("Tesla Model Y / EV Down Payment", Decimal("15000.00"), Decimal("11400.00"), datetime.date(2026, 6, 30), GoalStatus.IN_PROGRESS, "#3B82F6"),
-            ("European Summer Vacation", Decimal("6000.00"), Decimal("3850.00"), datetime.date(2026, 8, 1), GoalStatus.IN_PROGRESS, "#F59E0B"),
-            ("Real Estate Down Payment", Decimal("100000.00"), Decimal("42000.00"), datetime.date(2027, 12, 31), GoalStatus.IN_PROGRESS, "#8B5CF6"),
+            ("Emergency Fund 6-Months", GoalType.EMERGENCY_FUND, Decimal("450000.00"), Decimal("412000.00"), datetime.date(2025, 12, 31), GoalStatus.IN_PROGRESS, "#10B981"),
+            ("Creta EV Down Payment", GoalType.PURCHASE, Decimal("250000.00"), Decimal("182000.00"), datetime.date(2026, 6, 30), GoalStatus.IN_PROGRESS, "#3B82F6"),
+            ("International Vacation - Switzerland", GoalType.SAVINGS, Decimal("600000.00"), Decimal("285000.00"), datetime.date(2026, 8, 1), GoalStatus.IN_PROGRESS, "#F59E0B"),
+            ("Home Down Payment", GoalType.PURCHASE, Decimal("2000000.00"), Decimal("845000.00"), datetime.date(2027, 12, 31), GoalStatus.IN_PROGRESS, "#8B5CF6"),
         ]
 
-        for name, target, curr, target_dt, gstatus, color in goals_data:
+        for name, gtype, target, curr, target_dt, gstatus, color in goals_data:
             stmt = select(FinancialGoal).where(FinancialGoal.user_id == user_id, FinancialGoal.name == name)
             res = await db.execute(stmt)
             if not res.scalar_one_or_none():
                 goal = FinancialGoal(
                     user_id=user_id,
                     name=name,
+                    goal_type=gtype,
                     target_amount=target,
                     current_amount=curr,
-                    currency="USD",
+                    currency="INR",
                     target_date=target_dt,
                     status=gstatus,
                     color=color,
-                    is_active=True
+                    is_active=True,
                 )
                 db.add(goal)
 
         # 9. Create Budgets
         budgets_data = [
-            ("Monthly Groceries Budget", cat_map["Groceries & Food"], Decimal("700.00"), BudgetPeriod.MONTHLY),
-            ("Dining & Coffee Budget", cat_map["Dining & Restaurants"], Decimal("450.00"), BudgetPeriod.MONTHLY),
-            ("Shopping & Tech Budget", cat_map["Shopping & Electronics"], Decimal("400.00"), BudgetPeriod.MONTHLY),
-            ("Entertainment Budget", cat_map["Entertainment & Leisure"], Decimal("250.00"), BudgetPeriod.MONTHLY),
-            ("Transportation Budget", cat_map["Transportation & Auto"], Decimal("300.00"), BudgetPeriod.MONTHLY),
+            ("Monthly Groceries & Kirana", cat_map["Groceries & Food"], Decimal("12000.00")),
+            ("Dining & Swiggy Budget", cat_map["Dining & Restaurants"], Decimal("8000.00")),
+            ("Shopping & Electronics", cat_map["Shopping & Electronics"], Decimal("15000.00")),
+            ("Entertainment (OTT & Movies)", cat_map["Entertainment & Leisure"], Decimal("5000.00")),
+            ("Petrol & Commute", cat_map["Transportation & Auto"], Decimal("6000.00")),
         ]
 
-        for name, cat, amount, period in budgets_data:
+        for name, cat, amount in budgets_data:
             stmt = select(Budget).where(Budget.user_id == user_id, Budget.name == name)
             res = await db.execute(stmt)
             if not res.scalar_one_or_none():
                 b = Budget(
                     user_id=user_id,
-                    category_id=cat.id if cat else None,
+                    category_id=cat.id,
                     name=name,
-                    amount_limit=amount,
-                    period=period,
-                    currency="USD",
+                    amount=amount,
+                    period=BudgetPeriod.MONTHLY,
+                    currency="INR",
                     start_date=datetime.date(today.year, today.month, 1),
-                    is_active=True
                 )
                 db.add(b)
 
         # 10. Create Recurring Transaction Rules
         recurring_data = [
-            ("Monthly Rent Auto-Debit", acc_map["Primary Checking"], cat_map["Housing & Rent"], Decimal("2450.00"), TransactionType.EXPENSE, RecurrenceInterval.MONTHLY, datetime.date(2025, 1, 1), 1),
-            ("Bi-Weekly Salary", acc_map["Primary Checking"], cat_map["Salary"], Decimal("4750.00"), TransactionType.INCOME, RecurrenceInterval.BIWEEKLY, datetime.date(2025, 1, 10), None),
-            ("Internet Bill", acc_map["Primary Checking"], cat_map["Utilities & Internet"], Decimal("85.00"), TransactionType.EXPENSE, RecurrenceInterval.MONTHLY, datetime.date(2025, 1, 5), 5),
+            ("Monthly Rent Auto-Debit", acc_map["Primary Savings & Salary"], cat_map["Housing & Rent"], Decimal("45000.00"), TransactionType.EXPENSE, Frequency.MONTHLY),
+            ("Monthly Salary Credit", acc_map["Primary Savings & Salary"], cat_map["Salary"], Decimal("250000.00"), TransactionType.INCOME, Frequency.MONTHLY),
+            ("Broadband + IPTV", acc_map["Primary Savings & Salary"], cat_map["Utilities & Internet"], Decimal("1500.00"), TransactionType.EXPENSE, Frequency.MONTHLY),
         ]
 
-        for desc, acc, cat, amt, ttype, interval, s_date, day_m in recurring_data:
-            stmt = select(RecurringTransaction).where(RecurringTransaction.user_id == user_id, RecurringTransaction.description == desc)
+        for name, acc, cat, amt, ttype, freq in recurring_data:
+            stmt = select(RecurringTransaction).where(RecurringTransaction.user_id == user_id, RecurringTransaction.name == name)
             res = await db.execute(stmt)
             if not res.scalar_one_or_none():
                 rec = RecurringTransaction(
                     user_id=user_id,
-                    account_id=acc.id if acc else None,
-                    category_id=cat.id if cat else None,
+                    account_id=acc.id,
+                    category_id=cat.id,
+                    name=name,
                     amount=amt,
-                    currency="USD",
                     transaction_type=ttype,
-                    description=desc,
-                    interval=interval,
-                    start_date=s_date,
-                    day_of_month=day_m,
-                    is_active=True
+                    frequency=freq,
+                    next_occurrence=today.replace(day=1),
+                    is_active=True,
                 )
                 db.add(rec)
 
         await db.commit()
         print("Demo seed data successfully created!")
         print("Demo Login: demo@finpilot.ai / Password123!")
+
 
 if __name__ == "__main__":
     asyncio.run(seed_data())

@@ -24,7 +24,7 @@ class Income(Base, TimestampMixin):
 
     source = Column(Enum(IncomeSource, native_enum=False, length=50), nullable=False, default=IncomeSource.SALARY)
     amount = Column(Numeric(18, 2), nullable=False)
-    currency = Column(String(10), nullable=False, default="USD")
+    currency = Column(String(10), nullable=False, default="INR")
     is_recurring = Column(Boolean, default=False, nullable=False)
     date = Column(Date, nullable=False)
     description = Column(String(500), nullable=True)

@@ -11,7 +11,7 @@ class GoalBase(BaseModel):
     current_amount: Decimal = Field(default=Decimal("0.00"), ge=Decimal("0.00"))
     target_date: Optional[datetime.date] = None
     status: GoalStatus = GoalStatus.IN_PROGRESS
-    currency: str = Field(default="USD", min_length=3, max_length=10)
+    currency: str = Field(default="INR", min_length=3, max_length=10)
     color: Optional[str] = Field(None, max_length=20)
 
 class GoalCreate(GoalBase):

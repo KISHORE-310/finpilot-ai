@@ -11,7 +11,7 @@ class BudgetBase(BaseModel):
     period: BudgetPeriod = BudgetPeriod.MONTHLY
     start_date: datetime.date = Field(default_factory=datetime.date.today)
     end_date: Optional[datetime.date] = None
-    currency: str = Field(default="USD", min_length=3, max_length=10)
+    currency: str = Field(default="INR", min_length=3, max_length=10)
 
 class BudgetCreate(BudgetBase):
     pass

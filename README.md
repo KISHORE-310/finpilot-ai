@@ -8,13 +8,13 @@
 
 1. **Phase 1: Foundation + Financial Data Platform** ✅
    - Core cash ledger, multi-account management, double-precision monetary math (`Decimal` / `NUMERIC(18,2)`), CSV/Excel data import pipeline with SHA-256 deduplication, JWT authentication, and strict user data isolation.
-2. **Phase 2: Financial Intelligence & Analytics Platform** ✅ *(Current)*
+2. **Phase 2: Financial Intelligence & Analytics Platform** ✅
    - Dedicated deterministic analytics service layer, executive intelligence dashboard, time-period filtering, granular cash-flow time-series, spending breakdown & top merchants, budget pace projections, goal contribution math, investment allocation, net worth snapshot history, statistical anomaly detection, rule-based financial health scoring, and alert generation.
-3. **Phase 3: LangChain AI Analyst + Financial Tool Calling** *(Upcoming)*
+3. **Phase 3: LangChain AI Analyst + Financial Tool Calling** ✅
    - Expose deterministic analytics APIs as structured LangChain tools with RAG integration.
-4. **Phase 4: LangGraph Agentic Financial Analyst** *(Upcoming)*
+4. **Phase 4: LangGraph Agentic Financial Analyst** ✅
    - Multi-agent financial reasoning, scenario evaluation, autonomous goal optimization.
-5. **Phase 5: Production Evaluation, Hardening & Deployment** *(Upcoming)*
+5. **Phase 5: Production Evaluation, Hardening & Deployment** ✅
 
 ---
 
@@ -93,11 +93,11 @@ curl -X POST http://localhost:8000/api/v1/ai/chat \
   -d '{"message": "What is my net worth and savings rate this month?"}'
 ```
 
-### Phase 3 Test Suite
+### Test Suite
 
 ```bash
 cd backend
-pytest tests/test_ai_*.py -v
-# Expected: 20 Phase 3 tests + 17 Phase 1&2 tests = 37 total passing
+pytest -v
+# Expected: 74 tests total passing (auth, accounts, transactions, analytics, AI/RAG/graph, security, imports, and fixes/regressions)
 ```
 

@@ -76,25 +76,6 @@ async def get_cash_flow(
     )
 
 
-@router.get("/spending", response_model=SpendingBreakdownResponse)
-async def get_spending(
-    period: str = Query("this_month"),
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    start_d, end_d, prev_s, prev_e = get_period_dates(period, start_date, end_date)
-    service = SpendingAnalyticsService(db)
-    return await service.get_category_spending(
-        user_id=str(current_user.id),
-        start_date=start_d,
-        end_date=end_d,
-        prev_start_date=prev_s,
-        prev_end_date=prev_e,
-    )
-
-
 @router.get("/spending/categories", response_model=SpendingBreakdownResponse)
 async def get_spending_categories(
     period: str = Query("this_month"),
@@ -163,11 +144,19 @@ async def get_recurring_analysis(
 
 @router.get("/budgets", response_model=BudgetAnalyticsResponse)
 async def get_budget_analytics(
+    period: str = Query("this_month", description="Period preset: this_month, last_month, last_3_months, last_6_months, this_year, last_year, custom"),
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    start_d, end_d, _, _ = get_period_dates(period, start_date, end_date)
     service = BudgetAnalyticsService(db)
-    return await service.get_budget_analytics(user_id=str(current_user.id))
+    return await service.get_budget_analytics(
+        user_id=str(current_user.id),
+        start_date=start_d,
+        end_date=end_d,
+    )
 
 
 @router.get("/goals", response_model=GoalAnalyticsResponse)

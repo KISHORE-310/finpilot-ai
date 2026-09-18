@@ -32,7 +32,7 @@ class InsightsEngineService:
                     FinancialInsightItem(
                         metric="category_spending_increase",
                         title=f"{cat.category_name} spending increased",
-                        description=f"Spending in {cat.category_name} rose by {cat.percentage_change:.1f}% compared to previous period (+${cat.absolute_change:.2f}).",
+                        description=f"Spending in {cat.category_name} rose by {cat.percentage_change:.1f}% compared to previous period (+₹{cat.absolute_change:.2f}).",
                         severity="warning",
                         value=f"+{cat.percentage_change:.1f}%",
                     )
@@ -65,9 +65,9 @@ class InsightsEngineService:
                 FinancialInsightItem(
                     metric="negative_cash_flow",
                     title="Deficit Warning",
-                    description=f"Expenses exceeded income by ${abs(cf.net_cash_flow):.2f} during this period.",
+                    description=f"Expenses exceeded income by ₹{abs(cf.net_cash_flow):.2f} during this period.",
                     severity="critical",
-                    value=f"-${abs(cf.net_cash_flow):.2f}",
+                    value=f"-₹{abs(cf.net_cash_flow):.2f}",
                 )
             )
 

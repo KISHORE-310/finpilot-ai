@@ -7,7 +7,8 @@ import {
   ConversationResponse,
   MessageItemResponse,
   Citation,
-  KeyMetric
+  KeyMetric,
+  AIHealthResponse
 } from '@/types';
 import {
   Sparkles,
@@ -45,7 +46,7 @@ export default function AIAnalystPage() {
   
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [healthInfo, setHealthInfo] = useState<{ status?: string; model: string; knowledge_docs_count: number } | null>(null);
+  const [healthInfo, setHealthInfo] = useState<AIHealthResponse | null>(null);
   const [expandedTraceIdx, setExpandedTraceIdx] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -73,7 +74,7 @@ export default function AIAnalystPage() {
         api.ai.health().catch(() => null),
         api.ai.listConversations().catch(() => [])
       ]);
-      if (health) setHealthInfo(health as any);
+      if (health) setHealthInfo(health);
       if (convs && convs.length > 0) {
         setConversations(convs);
         selectConversation(convs[0].id);

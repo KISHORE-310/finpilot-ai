@@ -1,8 +1,8 @@
 import calendar
 import datetime
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
-from typing import List
+from typing import List, Optional, Tuple
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models.budget import Budget, BudgetPeriod
@@ -19,7 +19,32 @@ class BudgetAnalyticsService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_budget_analytics(self, user_id: str) -> BudgetAnalyticsResponse:
+    @staticmethod
+    def _cycle_range(budget: Budget, today: date) -> Tuple[date, date]:
+        """Resolves the current reporting window for a budget, honoring its period
+        and start_date while always referencing the cycle containing `today`."""
+        period = budget.period or BudgetPeriod.MONTHLY
+        if period == BudgetPeriod.WEEKLY:
+            start_d = today - timedelta(days=today.weekday())
+            return start_d, start_d + timedelta(days=6)
+        if period == BudgetPeriod.QUARTERLY:
+            q_start_month = ((today.month - 1) // 3) * 3 + 1
+            start_d = date(today.year, q_start_month, 1)
+            _, last_d = calendar.monthrange(today.year, q_start_month + 2)
+            return start_d, date(today.year, q_start_month + 2, last_d)
+        if period == BudgetPeriod.ANNUAL:
+            return date(today.year, 1, 1), date(today.year, 12, 31)
+        # MONTHLY (default)
+        start_d = date(today.year, today.month, 1)
+        _, last_d = calendar.monthrange(today.year, today.month)
+        return start_d, date(today.year, today.month, last_d)
+
+    async def get_budget_analytics(
+        self,
+        user_id: str,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> BudgetAnalyticsResponse:
         today = date.today()
         # Query user budgets
         b_stmt = (
@@ -43,16 +68,20 @@ class BudgetAnalyticsService:
             allocated = Decimal(str(b.amount))
             total_budget += allocated
 
-            # Compute period range for this budget
-            # default monthly
-            start_d = date(today.year, today.month, 1)
-            _, last_d_num = calendar.monthrange(today.year, today.month)
-            end_d = date(today.year, today.month, last_d_num)
-            days_in_period = last_d_num
-            days_elapsed = max(1, today.day)
+            # Resolve reporting window: explicit dates override cycle defaults
+            if start_date and end_date:
+                start_d, end_d = start_date, end_date
+            else:
+                start_d, end_d = self._cycle_range(b, today)
+
+            days_in_period = max(1, (end_d - start_d).days + 1)
+            if today < start_d:
+                days_elapsed = 0
+            else:
+                days_elapsed = max(0, min((today - start_d).days + 1, days_in_period))
             days_remaining = max(0, days_in_period - days_elapsed)
 
-            # Query actual spent in category for this month
+            # Query actual spent in category for this period
             spend_stmt = (
                 select(func.sum(Transaction.amount))
                 .where(

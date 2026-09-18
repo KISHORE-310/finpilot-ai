@@ -45,12 +45,39 @@ class IncomeService:
         record = await self.income_repo.get_by_id(income_id)
         if not record or record.user_id != user_id:
             raise EntityNotFoundException("Income", income_id)
+
+        old_amount = Decimal(str(record.amount))
+        old_account_id = record.account_id
+
         update_data = income_in.model_dump(exclude_unset=True)
+
+        new_account_id = update_data.get("account_id", old_account_id)
+        if "account_id" in update_data and new_account_id:
+            new_acc_obj = await self.account_repo.get_by_id(new_account_id)
+            if not new_acc_obj or new_acc_obj.user_id != user_id:
+                raise EntityNotFoundException("Account", new_account_id)
+
         updated = await self.income_repo.update(record, update_data)
+
+        # Re-sync account balances when amount or account changed
+        if "amount" in update_data or "account_id" in update_data:
+            if old_account_id:
+                old_acc = await self.account_repo.get_by_id(old_account_id)
+                if old_acc:
+                    old_acc.current_balance = Decimal(str(old_acc.current_balance)) - old_amount
+            if new_account_id:
+                new_acc = await self.account_repo.get_by_id(new_account_id)
+                if new_acc:
+                    new_acc.current_balance = Decimal(str(new_acc.current_balance)) + Decimal(str(updated.amount))
+
         return IncomeResponse.model_validate(updated)
 
     async def delete_income(self, income_id: str, user_id: str) -> bool:
         record = await self.income_repo.get_by_id(income_id)
         if not record or record.user_id != user_id:
             raise EntityNotFoundException("Income", income_id)
+        if record.account_id:
+            account = await self.account_repo.get_by_id(record.account_id)
+            if account:
+                account.current_balance = Decimal(str(account.current_balance)) - Decimal(str(record.amount))
         return await self.income_repo.delete(record)

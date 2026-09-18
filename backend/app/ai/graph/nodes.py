@@ -22,9 +22,90 @@ from app.ai.prompts.graph_prompts import (
     PLANNER_PROMPT,
 )
 from app.ai.rag.semantic_retriever import SemanticRetriever
-from app.ai.schemas.chat import AIInsight, Citation, KeyMetric
+from app.ai.schemas.chat import Citation
+from app.ai.tools.metrics import extract_key_metrics as extract_key_metrics_from_tools
+
+# Backwards-compatible alias for direct importers.
+_extract_key_metrics = extract_key_metrics_from_tools
 
 logger = logging.getLogger(__name__)
+
+
+def _render_prompt(template: str, **kwargs: str) -> str:
+    """Substitutes placeholders via literal replace so braces in user content
+    (e.g. JSON, code) never crash str.format."""
+    text = template
+    for key, value in kwargs.items():
+        text = text.replace("{" + key + "}", str(value))
+    return text
+
+# Common Indian spending categories for keyword-based arg resolution.
+_CATEGORY_KEYWORDS: Dict[str, str] = {
+    "food": "food",
+    "dining": "food",
+    "restaurant": "food",
+    "swiggy": "food",
+    "zomato": "food",
+    "groceries": "groceries",
+    "grocery": "groceries",
+    "bigbasket": "groceries",
+    "entertainment": "entertainment",
+    "movie": "entertainment",
+    "netflix": "entertainment",
+    "shopping": "shopping",
+    "amazon": "shopping",
+    "travel": "travel",
+    "health": "health",
+    "gym": "health",
+    "medical": "health",
+    "utilities": "utilities",
+    "electricity": "utilities",
+    "transport": "transport",
+    "fuel": "transport",
+    "rent": "rent",
+    "subscription": "subscriptions",
+}
+
+
+def _parse_tool_args(raw: str) -> Dict[str, Dict[str, Any]]:
+    """Best-effort parse of the planner's ARGS line."""
+    raw = raw.strip()
+    if not raw or raw.upper() == "NONE" or raw == "{}":
+        return {}
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return {k: v for k, v in parsed.items() if isinstance(v, dict)}
+    except (ValueError, TypeError):
+        pass
+    return {}
+
+
+def _resolve_tool_args(
+    query: str, tools_plan: List[str], tool_args: Dict[str, Dict[str, Any]]
+) -> Dict[str, Dict[str, Any]]:
+    """Fills in missing arguments needed by argument-required tools."""
+    resolved = dict(tool_args) if tool_args else {}
+    q = query.lower()
+
+    if "query_financial_knowledge_rag" in tools_plan:
+        resolved.setdefault("query_financial_knowledge_rag", {})
+        resolved["query_financial_knowledge_rag"].setdefault("query", query)
+
+    if "get_category_spending" in tools_plan:
+        resolved.setdefault("get_category_spending", {})
+        category_name = ""
+        for keyword, cat in _CATEGORY_KEYWORDS.items():
+            if keyword in q:
+                category_name = cat
+                break
+        resolved["get_category_spending"].setdefault(
+            "category_name", category_name or "other"
+        )
+
+    return resolved
 
 # ─── Planner Node ─────────────────────────────────────────────────────────────
 
@@ -45,7 +126,7 @@ async def planner_node(state: GraphState) -> GraphState:
             history_lines.append(f"Assistant: {msg.content[:200]}")
     history_text = "\n".join(history_lines) if history_lines else "No prior conversation."
 
-    prompt_text = PLANNER_PROMPT.format(query=query, history=history_text)
+    prompt_text = _render_prompt(PLANNER_PROMPT, query=query, history=history_text)
     model = get_chat_model()
     response = await model.ainvoke([HumanMessage(content=prompt_text)])
     plan_text = response.content if hasattr(response, "content") else str(response)
@@ -54,6 +135,7 @@ async def planner_node(state: GraphState) -> GraphState:
     intent = "financial_data"
     plan = "Retrieve financial data to answer the query."
     tools_plan: List[str] = []
+    tool_args: Dict[str, Dict[str, Any]] = {}
 
     for line in plan_text.splitlines():
         line = line.strip()
@@ -67,13 +149,22 @@ async def planner_node(state: GraphState) -> GraphState:
             raw_tools = line[6:].strip()
             if raw_tools.upper() != "NONE":
                 tools_plan = [t.strip() for t in raw_tools.split(",") if t.strip()]
+        elif line.startswith("ARGS:"):
+            raw_args = line[5:].strip()
+            parsed = _parse_tool_args(raw_args)
+            if parsed:
+                tool_args.update(parsed)
 
-    logger.debug(f"Planner: intent={intent}, tools={tools_plan}")
+    # Fallback arg resolution when planner omitted ARGS or the model is non-deterministic
+    tool_args = _resolve_tool_args(query, tools_plan, tool_args)
+
+    logger.debug(f"Planner: intent={intent}, tools={tools_plan}, args={tool_args}")
 
     return GraphState(
         intent=intent,
         plan=plan,
         tools_plan=tools_plan,
+        tool_args=tool_args,
         iteration=state.get("iteration", 0),
     )
 
@@ -118,6 +209,7 @@ async def analyst_node(state: GraphState, tools: List[Any]) -> GraphState:
     query = state.get("user_query", "")
     plan = state.get("plan", "")
     tools_plan = state.get("tools_plan", [])
+    tool_args = state.get("tool_args", {})
     rag_context = state.get("rag_context", "")
     existing_tools_used = state.get("tools_used", [])
     existing_tool_outputs = state.get("tool_outputs", {})
@@ -140,7 +232,8 @@ async def analyst_node(state: GraphState, tools: List[Any]) -> GraphState:
             logger.warning(f"Tool {t_name} not found in tool map.")
             continue
         try:
-            out = await tool_map[t_name].ainvoke({})
+            args = tool_args.get(t_name, {}) if isinstance(tool_args, dict) else {}
+            out = await tool_map[t_name].ainvoke(args)
             tool_outputs[t_name] = json.loads(out) if isinstance(out, str) else out
             tools_used.append(t_name)
         except Exception as exc:
@@ -151,7 +244,8 @@ async def analyst_node(state: GraphState, tools: List[Any]) -> GraphState:
     tool_outputs_text = json.dumps(tool_outputs, indent=2, default=str) if tool_outputs else "No tool data retrieved."
 
     # Build analyst prompt
-    prompt_text = ANALYST_PROMPT.format(
+    prompt_text = _render_prompt(
+        ANALYST_PROMPT,
         query=query,
         plan=plan,
         rag_context=rag_context or "No educational context needed.",
@@ -199,7 +293,8 @@ async def critic_node(state: GraphState) -> GraphState:
 
     tool_outputs_text = json.dumps(tool_outputs, indent=2, default=str)
 
-    prompt_text = CRITIC_PROMPT.format(
+    prompt_text = _render_prompt(
+        CRITIC_PROMPT,
         query=query,
         draft=draft,
         tool_outputs=tool_outputs_text,
@@ -243,7 +338,8 @@ async def final_response_node(state: GraphState) -> GraphState:
     rag_citations = state.get("rag_citations", [])
     existing_citations = state.get("citations", [])
 
-    prompt_text = FINAL_RESPONSE_PROMPT.format(
+    prompt_text = _render_prompt(
+        FINAL_RESPONSE_PROMPT,
         query=query,
         draft=draft,
         feedback=feedback or "No revision needed.",
@@ -267,63 +363,3 @@ async def final_response_node(state: GraphState) -> GraphState:
         final_response=final_text,
         citations=deduped_citations[:3],
     )
-
-
-# ─── Utilities ────────────────────────────────────────────────────────────────
-
-
-def _extract_key_metrics(tool_outputs: Dict[str, Any]) -> List[KeyMetric]:
-    """Extract KeyMetric objects from tool output data."""
-    metrics: List[KeyMetric] = []
-
-    if "get_financial_overview" in tool_outputs:
-        d = tool_outputs["get_financial_overview"]
-        if isinstance(d, dict):
-            if "net_worth" in d:
-                metrics.append(KeyMetric(label="Net Worth", value=f"₹{d['net_worth']}"))
-            if "savings_rate_percentage" in d:
-                metrics.append(KeyMetric(label="Savings Rate", value=f"{d['savings_rate_percentage']}%"))
-            if "total_income" in d:
-                metrics.append(KeyMetric(label="Income", value=f"₹{d['total_income']}"))
-            if "total_expenses" in d:
-                metrics.append(KeyMetric(label="Expenses", value=f"₹{d['total_expenses']}"))
-
-    if "get_cash_flow" in tool_outputs:
-        d = tool_outputs["get_cash_flow"]
-        if isinstance(d, dict):
-            if "net_cash_flow" in d:
-                metrics.append(KeyMetric(label="Net Cash Flow", value=f"₹{d['net_cash_flow']}"))
-            if "savings_rate" in d:
-                metrics.append(KeyMetric(label="Savings Rate", value=f"{d['savings_rate']}%"))
-
-    if "get_spending_analysis" in tool_outputs:
-        d = tool_outputs["get_spending_analysis"]
-        if isinstance(d, dict) and "total_spending" in d:
-            metrics.append(KeyMetric(label="Total Expenses", value=f"₹{d['total_spending']}"))
-
-    if "get_budget_status" in tool_outputs:
-        d = tool_outputs["get_budget_status"]
-        if isinstance(d, dict) and "overall_utilization" in d:
-            metrics.append(KeyMetric(label="Budget Utilization", value=f"{d['overall_utilization']}%"))
-
-    if "get_investment_summary" in tool_outputs:
-        d = tool_outputs["get_investment_summary"]
-        if isinstance(d, dict):
-            if "current_value" in d:
-                metrics.append(KeyMetric(label="Portfolio Value", value=f"₹{d['current_value']}"))
-            if "pnl_percentage" in d:
-                metrics.append(KeyMetric(label="Portfolio Return", value=f"{d['pnl_percentage']}%"))
-
-    if "get_financial_health" in tool_outputs:
-        d = tool_outputs["get_financial_health"]
-        if isinstance(d, dict) and "score" in d:
-            metrics.append(KeyMetric(label="Financial Health Score", value=f"{d['score']}/100"))
-
-    if "get_net_worth" in tool_outputs:
-        d = tool_outputs["get_net_worth"]
-        if isinstance(d, dict):
-            current = d.get("current", d)
-            if "net_worth" in current:
-                metrics.append(KeyMetric(label="Net Worth", value=f"₹{current['net_worth']}"))
-
-    return metrics[:5]

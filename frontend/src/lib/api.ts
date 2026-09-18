@@ -154,12 +154,6 @@ export class ApiClient {
       if (endDate) q += `&end_date=${endDate}`;
       return this.get<CashFlowResponse>(q);
     },
-    getSpending: (period = 'this_month', startDate?: string, endDate?: string) => {
-      let q = `/analytics/spending?period=${period}`;
-      if (startDate) q += `&start_date=${startDate}`;
-      if (endDate) q += `&end_date=${endDate}`;
-      return this.get<SpendingBreakdownResponse>(q);
-    },
     getSpendingCategories: (period = 'this_month', startDate?: string, endDate?: string) => {
       let q = `/analytics/spending/categories?period=${period}`;
       if (startDate) q += `&start_date=${startDate}`;
@@ -179,7 +173,12 @@ export class ApiClient {
       return this.get<LargestTransactionsResponse>(q);
     },
     getRecurringAnalysis: () => this.get<RecurringAnalysisResponse>('/analytics/spending/recurring'),
-    getBudgets: () => this.get<BudgetAnalyticsResponse>('/analytics/budgets'),
+    getBudgets: (period = 'this_month', startDate?: string, endDate?: string) => {
+      let q = `/analytics/budgets?period=${period}`;
+      if (startDate) q += `&start_date=${startDate}`;
+      if (endDate) q += `&end_date=${endDate}`;
+      return this.get<BudgetAnalyticsResponse>(q);
+    },
     getGoals: () => this.get<GoalAnalyticsResponse>('/analytics/goals'),
     getIncome: (period = 'this_month', startDate?: string, endDate?: string) => {
       let q = `/analytics/income?period=${period}`;
@@ -189,8 +188,10 @@ export class ApiClient {
     },
     getInvestments: () => this.get<InvestmentAnalyticsResponse>('/analytics/investments'),
     getNetWorth: () => this.get<NetWorthAnalyticsResponse>('/analytics/net-worth'),
-    createNetWorthSnapshot: (snapshotDate?: string) =>
-      this.post<NetWorthSnapshotPoint>('/analytics/net-worth/snapshot', snapshotDate ? { snapshot_date: snapshotDate } : {}),
+    createNetWorthSnapshot: (snapshotDate?: string) => {
+      const q = snapshotDate ? `/analytics/net-worth/snapshot?snapshot_date=${encodeURIComponent(snapshotDate)}` : '/analytics/net-worth/snapshot';
+      return this.post<NetWorthSnapshotPoint>(q);
+    },
     getAnomalies: (period = 'this_month', startDate?: string, endDate?: string) => {
       let q = `/analytics/anomalies?period=${period}`;
       if (startDate) q += `&start_date=${startDate}`;

@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.ai.config import ai_settings
 from app.ai.services.analyst_service import FinancialAnalystService
 from app.ai.rag.ingestion import load_knowledge_documents
+from app.ai.tools import get_financial_tools
 from app.ai.schemas.chat import (
     AIHealthResponse,
     ChatRequest,
@@ -30,7 +31,7 @@ def _to_message_item_response(m: Message) -> MessageItemResponse:
             meta = json.loads(m.metadata_json)
             tools_used = meta.get("tools_used", [])
             citations = meta.get("citations", [])
-        except Exception:
+        except (ValueError, TypeError):
             pass
     return MessageItemResponse(
         id=m.id,
@@ -43,6 +44,19 @@ def _to_message_item_response(m: Message) -> MessageItemResponse:
     )
 
 
+async def _get_owned_conversation(db: AsyncSession, conversation_id: str, user_id: str) -> Conversation:
+    """Fetches a conversation that must belong to the current user, else raises 404."""
+    stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == user_id,
+    )
+    res = await db.execute(stmt)
+    conv = res.scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    return conv
+
+
 @router.get("/health", response_model=AIHealthResponse)
 async def get_ai_health():
     """Safe AI configuration health check without revealing secrets or keys."""
@@ -51,7 +65,7 @@ async def get_ai_health():
         enabled=ai_settings.is_configured,
         provider=ai_settings.LLM_PROVIDER,
         model=ai_settings.LLM_MODEL,
-        tools_count=13,
+        tools_count=len(get_financial_tools(session=None, user_id="")),
         knowledge_docs_count=len(docs),
         rag_documents_count=len(docs),
         rate_limit_per_minute=ai_settings.RATE_LIMIT_REQUESTS_PER_MINUTE,
@@ -134,14 +148,7 @@ async def get_conversation(
     db: AsyncSession = Depends(get_db),
 ):
     """Retrieves conversation thread with full message history."""
-    stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == str(current_user.id),
-    )
-    res = await db.execute(stmt)
-    conv = res.scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    conv = await _get_owned_conversation(db, conversation_id, str(current_user.id))
 
     # Load messages
     msg_stmt = (
@@ -169,14 +176,7 @@ async def list_conversation_messages(
     db: AsyncSession = Depends(get_db),
 ):
     """Lists messages for a conversation thread."""
-    stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == str(current_user.id),
-    )
-    res = await db.execute(stmt)
-    conv = res.scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    await _get_owned_conversation(db, conversation_id, str(current_user.id))
 
     msg_stmt = (
         select(Message)
@@ -197,14 +197,7 @@ async def send_message_to_conversation(
 ):
     """Sends a message within an existing conversation thread."""
     # Verify ownership
-    stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == str(current_user.id),
-    )
-    res = await db.execute(stmt)
-    conv = res.scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    await _get_owned_conversation(db, conversation_id, str(current_user.id))
 
     request.conversation_id = conversation_id
     service = FinancialAnalystService(db)
@@ -218,14 +211,7 @@ async def delete_conversation(
     db: AsyncSession = Depends(get_db),
 ):
     """Deletes a conversation thread and its message history."""
-    stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == str(current_user.id),
-    )
-    res = await db.execute(stmt)
-    conv = res.scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    conv = await _get_owned_conversation(db, conversation_id, str(current_user.id))
 
     await db.delete(conv)
     await db.commit()

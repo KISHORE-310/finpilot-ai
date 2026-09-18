@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://finpilot_user:finpilot_secure_password@localhost:5432/finpilot_db"
-    SYNC_DATABASE_URL: str = "postgresql://finpilot_user:finpilot_secure_password@localhost:5432/finpilot_db"
+    DATABASE_URL: str = "postgresql+asyncpg://finpilot:finpilot_secure_pass_2026@localhost:5432/finpilot_db"
+    SYNC_DATABASE_URL: str = "postgresql://finpilot:finpilot_secure_pass_2026@localhost:5432/finpilot_db"
 
     # CORS
     CORS_ORIGINS: Union[str, List[str]] = ["http://localhost:3000", "http://127.0.0.1:3000"]

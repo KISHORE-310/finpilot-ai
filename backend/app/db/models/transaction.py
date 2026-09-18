@@ -23,7 +23,7 @@ class Transaction(Base, TimestampMixin):
     category_id = Column(String(36), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True)
 
     amount = Column(Numeric(18, 2), nullable=False)
-    currency = Column(String(10), nullable=False, default="USD")
+    currency = Column(String(10), nullable=False, default="INR")
     transaction_type = Column(Enum(TransactionType, native_enum=False, length=20), nullable=False)
     transaction_date = Column(Date, nullable=False, index=True)
     description = Column(String(500), nullable=False)

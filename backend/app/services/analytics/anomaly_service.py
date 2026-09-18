@@ -43,7 +43,7 @@ class AnomalyDetectionService:
         variance = sum((x - mean_amt) ** 2 for x in amounts) / len(amounts)
         std_dev = math.sqrt(variance) if variance > 0 else 0.0
 
-        # Outlier threshold: mean + 2.5 * std_dev (minimum $100)
+        # Outlier threshold: mean + 2.5 * std_dev (minimum ₹100)
         outlier_thresh = max(100.0, mean_amt + (2.5 * std_dev))
 
         anomalies: List[AnomalyItem] = []
@@ -65,10 +65,10 @@ class AnomalyDetectionService:
                         id=tx.id,
                         type="unusual_amount",
                         severity="warning" if amt_float < outlier_thresh * 1.5 else "critical",
-                        title=f"Unusual expense of ${amt_dec:.2f}",
+                        title=f"Unusual expense of ₹{amt_dec:.2f}",
                         description=(
-                            f"${amt_dec:.2f} spent at {tx.merchant_name or tx.description}. "
-                            f"This is {dev_factor}x your historical average transaction (${mean_amt:.2f})."
+                            f"₹{amt_dec:.2f} spent at {tx.merchant_name or tx.description}. "
+                            f"This is {dev_factor}x your historical average transaction (₹{mean_amt:.2f})."
                         ),
                         amount=amt_dec,
                         typical_amount=Decimal(str(round(mean_amt, 2))),

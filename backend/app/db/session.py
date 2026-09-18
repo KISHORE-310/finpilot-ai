@@ -5,7 +5,7 @@ from app.core.config import settings
 # Async Engine for FastAPI operations
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=(settings.ENVIRONMENT == "development" and False),
+    echo=False,
     future=True,
     pool_pre_ping=True,
 )

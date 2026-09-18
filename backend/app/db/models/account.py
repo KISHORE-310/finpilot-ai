@@ -24,7 +24,7 @@ class Account(Base, TimestampMixin):
     name = Column(String(255), nullable=False)
     account_type = Column(Enum(AccountType, native_enum=False, length=50), nullable=False, default=AccountType.BANK)
     institution = Column(String(255), nullable=True)
-    currency = Column(String(10), nullable=False, default="USD")
+    currency = Column(String(10), nullable=False, default="INR")
     current_balance = Column(Numeric(18, 2), nullable=False, default=0.00)
     is_active = Column(Boolean, default=True, nullable=False)
 

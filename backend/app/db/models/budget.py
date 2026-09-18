@@ -24,7 +24,7 @@ class Budget(Base, TimestampMixin):
     period = Column(Enum(BudgetPeriod, native_enum=False, length=20), nullable=False, default=BudgetPeriod.MONTHLY)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
-    currency = Column(String(10), nullable=False, default="USD")
+    currency = Column(String(10), nullable=False, default="INR")
 
     user = relationship("User", back_populates="budgets")
     category = relationship("Category", back_populates="budgets")

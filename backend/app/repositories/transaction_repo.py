@@ -56,7 +56,7 @@ class TransactionRepository(BaseRepository[Transaction]):
             pattern = f"%{search.strip()}%"
             filters.append(or_(
                 Transaction.description.ilike(pattern),
-                Transaction.merchant.ilike(pattern),
+                Transaction.merchant_name.ilike(pattern),
                 Transaction.notes.ilike(pattern)
             ))
 

@@ -4,9 +4,15 @@ from decimal import Decimal
 from typing import Dict, List
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from app.db.models.income import Income, IncomeSource
 from app.db.models.transaction import Transaction, TransactionType
 from app.schemas.analytics import IncomeSourceItem, IncomeAnalyticsResponse
+
+# Sources considered recurring based on the income category/description.
+_RECURRING_SOURCE_KEYWORDS = (
+    "salary", "bonus", "dividend", "interest", "pension", "return", "retainer",
+)
 
 
 class IncomeAnalyticsService:
@@ -19,21 +25,12 @@ class IncomeAnalyticsService:
         start_date: date,
         end_date: date,
     ) -> IncomeAnalyticsResponse:
-        # Query Income table
-        inc_stmt = (
-            select(Income)
-            .where(
-                Income.user_id == user_id,
-                Income.date >= start_date,
-                Income.date <= end_date,
-            )
-        )
-        inc_res = await self.session.execute(inc_stmt)
-        income_records = list(inc_res.scalars().all())
-
-        # Also fallback/check Transaction table for income
+        # Single source of truth: the cleared transaction ledger. The Income
+        # table only configures source definitions, so counting both would
+        # double-report the same money.
         tx_stmt = (
             select(Transaction)
+            .options(selectinload(Transaction.category))
             .where(
                 Transaction.user_id == user_id,
                 Transaction.transaction_type == TransactionType.INCOME,
@@ -48,21 +45,16 @@ class IncomeAnalyticsService:
         recurring_income = Decimal("0.00")
         non_recurring_income = Decimal("0.00")
 
-        if income_records:
-            for rec in income_records:
-                amt = Decimal(str(rec.amount))
-                src = rec.source.value if hasattr(rec.source, "value") else str(rec.source)
-                source_sums[src] = source_sums.get(src, Decimal("0.00")) + amt
-                if rec.is_recurring:
-                    recurring_income += amt
-                else:
-                    non_recurring_income += amt
-        else:
-            # Fallback to transactions
-            for tx in tx_records:
-                amt = Decimal(str(tx.amount))
-                src = "salary"  # generic primary
-                source_sums[src] = source_sums.get(src, Decimal("0.00")) + amt
+        for tx in tx_records:
+            amt = Decimal(str(tx.amount))
+            category = tx.category.name if tx.category and tx.category.name else None
+            src = str(category).strip() if category and str(category).strip() else "Other"
+            normalized = src.lower()
+            is_recurring = any(k in normalized for k in _RECURRING_SOURCE_KEYWORDS)
+            source_sums[src] = source_sums.get(src, Decimal("0.00")) + amt
+            if is_recurring:
+                recurring_income += amt
+            else:
                 non_recurring_income += amt
 
         total_income = sum(source_sums.values(), Decimal("0.00"))
@@ -77,10 +69,10 @@ class IncomeAnalyticsService:
                 pct = round((amt / total_income) * Decimal("100.00"), 2)
             sources.append(
                 IncomeSourceItem(
-                    source=src.capitalize(),
+                    source=src,
                     amount=amt,
                     percentage=pct,
-                    is_recurring=(amt == recurring_income and recurring_income > 0),
+                    is_recurring=any(k in src.lower() for k in _RECURRING_SOURCE_KEYWORDS),
                 )
             )
 

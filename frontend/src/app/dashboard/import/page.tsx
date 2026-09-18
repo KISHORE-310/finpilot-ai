@@ -190,7 +190,7 @@ export default function ImportPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/40">
-                {(previewData.preview_records || previewData.preview || []).slice(0, 10).map((row: any, idx: number) => (
+                {(previewData.preview_rows || previewData.preview_records || previewData.preview || []).slice(0, 10).map((row: any, idx: number) => (
                   <tr key={idx} className="hover:bg-slate-800/40">
                     <td className="px-6 py-3 text-slate-400">{row.date}</td>
                     <td className="px-6 py-3 text-white font-medium">{row.description}</td>

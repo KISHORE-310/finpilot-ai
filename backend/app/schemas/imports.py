@@ -24,7 +24,7 @@ class ImportPreviewResponse(BaseModel):
 class ImportExecuteRequest(BaseModel):
     account_id: str
     mapping: ColumnMapping
-    default_currency: str = "USD"
+    default_currency: str = "INR"
     skip_duplicates: bool = True
 
 

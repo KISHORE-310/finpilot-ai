@@ -29,7 +29,7 @@ class Investment(Base, TimestampMixin):
     quantity = Column(Numeric(18, 4), nullable=False, default=0.0000)
     average_cost = Column(Numeric(18, 4), nullable=False, default=0.0000)
     current_value = Column(Numeric(18, 2), nullable=False, default=0.00)
-    currency = Column(String(10), nullable=False, default="USD")
+    currency = Column(String(10), nullable=False, default="INR")
 
     user = relationship("User", back_populates="investments")
     account = relationship("Account", back_populates="investments")

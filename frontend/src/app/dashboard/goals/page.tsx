@@ -182,11 +182,11 @@ export default function GoalsPage() {
                 >
                   <option value="emergency_fund">Emergency Fund</option>
                   <option value="retirement">Retirement / NPS</option>
-                  <option value="home">Home / Down Payment</option>
+                  <option value="purchase">Home / Vehicle / Purchase</option>
                   <option value="vacation">Vacation / Travel</option>
-                  <option value="car">Vehicle</option>
-                  <option value="debt_payoff">Debt Payoff / Loan Prepayment</option>
                   <option value="education">Education</option>
+                  <option value="wedding">Wedding</option>
+                  <option value="debt_payoff">Debt Payoff / Loan Prepayment</option>
                   <option value="other">Other</option>
                 </select>
               </div>

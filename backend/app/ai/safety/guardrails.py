@@ -11,7 +11,7 @@ PROMPT_INJECTION_PATTERNS = [
 
 EXECUTION_INTENT_PATTERNS = [
     r"^(buy|purchase|sell|trade|short)\s+\d+\s+(shares|stocks|crypto|coins)",
-    r"^(transfer|send|wire)\s+\$?\d+",
+    r"^(transfer|send|wire)\s+[₹$]?\d+",
     r"^execute\s+(a\s+)?(trade|wire|transfer|transaction)",
     r"^(pay|settle)\s+my\s+bill\s+now",
 ]

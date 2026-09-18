@@ -58,20 +58,38 @@ class AlertService:
         start_30 = today - timedelta(days=30)
         created_alerts: List[FinancialAlert] = []
 
+        # Idempotency guard: skip alerts identical to ones created within the last 24h
+        # so repeated evaluations do not duplicate budget/anomaly/recurring alerts.
+        cutoff = today - timedelta(days=1)
+        existing_stmt = select(FinancialAlert).where(
+            FinancialAlert.user_id == user_id,
+            FinancialAlert.created_at >= cutoff,
+        )
+        existing_res = await self.session.execute(existing_stmt)
+        existing_keys = {(a.alert_type, a.title) for a in existing_res.scalars().all()}
+
+        def _is_duplicate(alert_type: AlertType, title: str) -> bool:
+            return (alert_type, title) in existing_keys
+
         # 1. Budget checks
         b_res = await self.budget_service.get_budget_analytics(user_id)
         for b in b_res.budgets:
             if b.status.value == "OVER_BUDGET":
+                if _is_duplicate(AlertType.BUDGET_EXCEEDED, f"Budget Exceeded: {b.name}"):
+                    continue
                 al = FinancialAlert(
                     user_id=user_id,
                     alert_type=AlertType.BUDGET_EXCEEDED,
                     severity=AlertSeverity.CRITICAL,
                     title=f"Budget Exceeded: {b.name}",
-                    message=f"You have spent ${b.actual_spent:.2f} of your ${b.allocated_amount:.2f} budget ({b.percentage_used:.1f}% used).",
+                    message=f"You have spent ₹{b.actual_spent:.2f} of your ₹{b.allocated_amount:.2f} budget ({b.percentage_used:.1f}% used).",
                 )
                 self.session.add(al)
                 created_alerts.append(al)
+                existing_keys.add((al.alert_type, al.title))
             elif b.status.value == "WARNING":
+                if _is_duplicate(AlertType.BUDGET_WARNING, f"Budget Warning: {b.name}"):
+                    continue
                 al = FinancialAlert(
                     user_id=user_id,
                     alert_type=AlertType.BUDGET_WARNING,
@@ -81,10 +99,13 @@ class AlertService:
                 )
                 self.session.add(al)
                 created_alerts.append(al)
+                existing_keys.add((al.alert_type, al.title))
 
         # 2. Anomaly checks
         anom_res = await self.anomaly_service.get_anomalies(user_id, start_30, today)
         for anom in anom_res.anomalies:
+            if _is_duplicate(AlertType.UNUSUAL_TRANSACTION, anom.title):
+                continue
             al = FinancialAlert(
                 user_id=user_id,
                 alert_type=AlertType.UNUSUAL_TRANSACTION,
@@ -94,19 +115,24 @@ class AlertService:
             )
             self.session.add(al)
             created_alerts.append(al)
+            existing_keys.add((al.alert_type, al.title))
 
         # 3. Recurring upcoming
         rec_res = await self.spending_service.get_recurring_analysis(user_id)
         for up in rec_res.upcoming_30_days[:3]:
+            title = f"Upcoming Recurring Bill: {up.name}"
+            if _is_duplicate(AlertType.RECURRING_UPCOMING, title):
+                continue
             al = FinancialAlert(
                 user_id=user_id,
                 alert_type=AlertType.RECURRING_UPCOMING,
                 severity=AlertSeverity.INFO,
-                title=f"Upcoming Recurring Bill: {up.name}",
-                message=f"${up.amount:.2f} due on {up.next_occurrence.isoformat()}.",
+                title=title,
+                message=f"₹{up.amount:.2f} due on {up.next_occurrence.isoformat()}.",
             )
             self.session.add(al)
             created_alerts.append(al)
+            existing_keys.add((al.alert_type, al.title))
 
         await self.session.commit()
         return [AlertResponse.model_validate(a) for a in created_alerts]

@@ -58,6 +58,17 @@ class GoalAnalyticsService:
                 else:
                     months_remaining = 0
 
+            # Current monthly pace: average saving since the goal was created,
+            # floored at 1 month so freshly created goals still produce a value.
+            created_at = getattr(g, "created_at", None)
+            if created_at:
+                months_elapsed = max(1, int((today - created_at.date()).days / 30.4))
+            else:
+                months_elapsed = 1
+            cur_pace = round(current / Decimal(str(months_elapsed)), 2)
+            if req_monthly > Decimal("0.00"):
+                gap = max(Decimal("0.00"), round(req_monthly - cur_pace, 2))
+
             # Deterministic status classification
             if current >= target or g.status in [GoalStatus.ACHIEVED, GoalStatus.COMPLETED]:
                 status = GoalStatusEnum.COMPLETED

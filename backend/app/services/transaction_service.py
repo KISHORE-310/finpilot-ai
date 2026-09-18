@@ -1,4 +1,5 @@
 import datetime
+import math
 from decimal import Decimal
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,6 +42,7 @@ class TransactionService:
             total=total,
             page=filters.page,
             page_size=filters.page_size,
+            total_pages=math.ceil(total / filters.page_size),
         )
 
     async def get_transaction(self, tx_id: str, user_id: str) -> TransactionResponse:

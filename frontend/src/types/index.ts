@@ -189,12 +189,13 @@ export interface InvestmentTransaction {
 export type GoalType =
   | "emergency_fund"
   | "retirement"
+  | "purchase"
   | "vacation"
-  | "home"
-  | "car"
   | "education"
   | "wedding"
   | "debt_payoff"
+  | "investment"
+  | "savings"
   | "other";
 
 export type GoalStatus = "active" | "achieved" | "paused" | "cancelled" | "in_progress" | "completed";
@@ -592,21 +593,23 @@ export interface MessageResponse {
 // ==========================================
 
 export interface Citation {
-  source: string;
+  topic: string;
   title: string;
-  doc_id?: string;
-  excerpt?: string;
+  source: string;
+  source_url?: string;
+  snippet?: string;
 }
 
 export interface KeyMetric {
   label: string;
   value: string;
+  change?: string;
 }
 
 export interface AIInsight {
-  category: string;
-  text: string;
-  sentiment?: "positive" | "negative" | "neutral" | "warning";
+  title: string;
+  description: string;
+  severity?: "info" | "warning" | "critical";
 }
 
 export interface ChatRequest {
@@ -616,15 +619,16 @@ export interface ChatRequest {
 }
 
 export interface ChatResponse {
-  response: string;
   conversation_id: string;
+  message_id: string;
+  response: string;
+  answer?: string;
+  key_metrics: KeyMetric[];
+  insights: AIInsight[];
   citations: Citation[];
   tools_used: string[];
-  key_metrics?: KeyMetric[];
-  insights?: AIInsight[];
-  disclaimer?: string;
   guardrail_intervened?: boolean;
-  model: string;
+  disclaimer?: string;
 }
 
 export interface ConversationResponse {
@@ -633,11 +637,11 @@ export interface ConversationResponse {
   created_at: string;
   updated_at: string;
   message_count?: number;
+  messages?: MessageItemResponse[];
 }
 
 export interface MessageItemResponse {
   id: string;
-  conversation_id: string;
   role: "user" | "assistant" | "system" | "tool";
   content: string;
   tools_used?: string[];
@@ -646,10 +650,13 @@ export interface MessageItemResponse {
 }
 
 export interface AIHealthResponse {
-  status: string;
-  model: string;
-  knowledge_docs_count: number;
+  enabled: boolean;
   provider: string;
+  model: string;
+  tools_count: number;
+  knowledge_docs_count: number;
+  rag_documents_count: number;
+  rate_limit_per_minute: number;
 }
 
 // ──────────────────────────────────────────────

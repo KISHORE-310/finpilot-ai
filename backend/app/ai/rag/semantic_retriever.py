@@ -25,10 +25,10 @@ class SemanticRetriever:
     """
 
     _initialized: bool = False
+    _docs_index: dict[str, KnowledgeDocument] = {}
 
     def __init__(self) -> None:
         self._store = get_vector_store()
-        self._docs_index: dict[str, KnowledgeDocument] = {}
         self._ensure_populated()
 
     def _ensure_populated(self) -> None:

@@ -22,6 +22,7 @@ class GraphState(TypedDict, total=False):
     intent: str          # e.g. "financial_data", "educational", "hybrid"
     plan: str            # free-text reasoning plan from planner node
     tools_plan: List[str]  # list of tool names planner wants to call
+    tool_args: Dict[str, Dict[str, Any]]  # per-tool argument maps resolved by planner
 
     # ── Context Router outputs ─────────────────────────────────────────────
     rag_context: str

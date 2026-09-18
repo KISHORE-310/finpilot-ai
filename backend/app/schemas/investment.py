@@ -33,7 +33,7 @@ class InvestmentBase(BaseModel):
     quantity: Decimal = Field(default=Decimal("0.0000"), ge=Decimal("0.0000"))
     average_cost: Decimal = Field(default=Decimal("0.0000"), ge=Decimal("0.0000"))
     current_value: Decimal = Field(default=Decimal("0.00"), ge=Decimal("0.00"))
-    currency: str = Field(default="USD", min_length=3, max_length=10)
+    currency: str = Field(default="INR", min_length=3, max_length=10)
 
 class InvestmentCreate(InvestmentBase):
     pass

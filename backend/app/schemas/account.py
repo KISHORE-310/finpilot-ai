@@ -15,7 +15,7 @@ class AccountBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     account_type: AccountType = AccountType.BANK
     institution: Optional[str] = Field(None, max_length=255)
-    currency: str = Field(default="USD", min_length=3, max_length=10)
+    currency: str = Field(default="INR", min_length=3, max_length=10)
     current_balance: Decimal = Field(default=Decimal("0.00"))
     is_active: bool = True
 
