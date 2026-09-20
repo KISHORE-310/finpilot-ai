@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
+    description="Production-grade personal financial intelligence platform and agentic AI analyst combining deterministic double-entry accounting with LangGraph multi-agent orchestration and semantic RAG.",
     version=settings.VERSION,
     lifespan=lifespan,
     openapi_url=f"{settings.API_V1_STR}/openapi.json" if settings.ENVIRONMENT != "production" else None,

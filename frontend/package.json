@@ -1,6 +1,7 @@
 {
   "name": "finpilot-web",
   "version": "1.0.0",
+  "description": "Production-grade personal financial intelligence platform and agentic AI analyst built with Next.js 15, FastAPI, LangGraph, PostgreSQL, and pgvector.",
   "private": true,
   "scripts": {
     "dev": "node ./node_modules/next/dist/bin/next dev -p 3000",
