@@ -7,6 +7,7 @@ from app.api.dependencies import get_current_user
 from app.db.models.user import User
 from app.db.models.conversation import Conversation, Message
 from app.db.session import get_db
+from app.core.rate_limit import rate_limit_ai
 from app.ai.config import ai_settings
 from app.ai.services.analyst_service import FinancialAnalystService
 from app.ai.rag.ingestion import load_knowledge_documents
@@ -72,7 +73,7 @@ async def get_ai_health():
     )
 
 
-@router.post("/chat", response_model=ChatResponse)
+@router.post("/chat", response_model=ChatResponse, dependencies=[Depends(rate_limit_ai)])
 async def chat_with_analyst(
     request: ChatRequest,
     current_user: User = Depends(get_current_user),
@@ -83,7 +84,7 @@ async def chat_with_analyst(
     return await service.execute_chat(user_id=str(current_user.id), request=request)
 
 
-@router.post("/conversations", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/conversations", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit_ai)])
 async def create_conversation(
     title: str = Query("New Financial Analysis"),
     current_user: User = Depends(get_current_user),

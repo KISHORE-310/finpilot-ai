@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, UploadFile, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_user
+from app.core.rate_limit import rate_limit_import
 from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.imports import (
@@ -15,7 +16,7 @@ from app.services.import_service import ImportService
 router = APIRouter(prefix="/imports", tags=["Imports"])
 
 
-@router.post("/preview", response_model=ImportPreviewResponse)
+@router.post("/preview", response_model=ImportPreviewResponse, dependencies=[Depends(rate_limit_import)])
 async def preview_file(
     file: UploadFile = File(...),
     account_id: Optional[str] = Form(None),
@@ -34,7 +35,7 @@ async def preview_file(
     )
 
 
-@router.post("/execute", response_model=ImportSummaryResponse)
+@router.post("/execute", response_model=ImportSummaryResponse, dependencies=[Depends(rate_limit_import)])
 async def execute_import(
     file: UploadFile = File(...),
     account_id: str = Form(...),

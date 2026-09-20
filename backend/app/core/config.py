@@ -15,6 +15,15 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev_secret_key_CHANGE_ME_in_production_use_32plus_random_chars"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
+    JWT_ISSUER: str = "finpilot-ai"
+    JWT_AUDIENCE: str = "finpilot-api"
+
+    # Rate Limiting & Abuse Protection
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_AUTH_PER_MINUTE: int = 20
+    RATE_LIMIT_AI_PER_MINUTE: int = 30
+    RATE_LIMIT_IMPORT_PER_MINUTE: int = 15
+    RATE_LIMIT_DEFAULT_PER_MINUTE: int = 120
 
     # Database — NO hardcoded credentials; dev defaults use localhost only
     DATABASE_URL: str = "postgresql+asyncpg://finpilot_user:change_me@localhost:5432/finpilot_db"

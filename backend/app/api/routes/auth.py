@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, security_scheme
+from app.core.rate_limit import rate_limit_auth
+from app.core.security import revoke_token
 from app.db.models.user import User
 from app.db.session import get_db
 from app.services.auth_service import AuthService
@@ -10,20 +13,25 @@ from app.schemas.user import Token, UserCreate, UserLogin, UserResponse
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit_auth)])
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     return await service.register(user_in)
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, dependencies=[Depends(rate_limit_auth)])
 async def login(login_in: UserLogin, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     return await service.login(login_in)
 
 
 @router.post("/logout", response_model=MessageResponse)
-async def logout(current_user: User = Depends(get_current_user)):
+async def logout(
+    current_user: User = Depends(get_current_user),
+    cred: HTTPAuthorizationCredentials = Depends(security_scheme),
+):
+    if cred and cred.credentials:
+        revoke_token(cred.credentials)
     return MessageResponse(message="Logged out successfully.")
 
 

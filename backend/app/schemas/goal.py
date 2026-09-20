@@ -1,21 +1,29 @@
 import datetime
 from decimal import Decimal
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from app.db.models.goal import GoalStatus, GoalType
+
 
 class GoalBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     goal_type: GoalType = GoalType.SAVINGS
-    target_amount: Decimal = Field(..., gt=Decimal("0.00"))
+    target_amount: Decimal = Field(..., gt=Decimal("0.00"), description="Target amount must be strictly positive")
     current_amount: Decimal = Field(default=Decimal("0.00"), ge=Decimal("0.00"))
     target_date: Optional[datetime.date] = None
     status: GoalStatus = GoalStatus.IN_PROGRESS
     currency: str = Field(default="INR", min_length=3, max_length=10)
     color: Optional[str] = Field(None, max_length=20)
 
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, v: str) -> str:
+        return v.strip().upper()
+
+
 class GoalCreate(GoalBase):
     pass
+
 
 class GoalUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
@@ -26,6 +34,12 @@ class GoalUpdate(BaseModel):
     status: Optional[GoalStatus] = None
     currency: Optional[str] = None
     color: Optional[str] = None
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, v: Optional[str]) -> Optional[str]:
+        return v.strip().upper() if v else None
+
 
 class GoalResponse(GoalBase):
     id: str

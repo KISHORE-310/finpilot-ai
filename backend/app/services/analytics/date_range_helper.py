@@ -79,8 +79,9 @@ def get_period_dates(
         prev_end_date = date(today.year - 2, 12, 31)
 
     elif period == "custom" and custom_start and custom_end:
-        start_date = custom_start
-        end_date = custom_end
+        # Guarantee start_date <= end_date even if inverted by client
+        start_date = min(custom_start, custom_end)
+        end_date = max(custom_start, custom_end)
         duration = (end_date - start_date).days
         prev_end_date = start_date - timedelta(days=1)
         prev_start_date = prev_end_date - timedelta(days=max(0, duration))

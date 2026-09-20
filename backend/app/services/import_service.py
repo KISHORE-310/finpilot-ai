@@ -1,8 +1,9 @@
 import csv
 import io
+import os
 import datetime
-from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from decimal import Decimal, InvalidOperation
+from typing import Any, Dict, List, Optional, Set
 import openpyxl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,53 +23,95 @@ from app.schemas.imports import (
 
 
 class ImportService:
+    ALLOWED_EXTENSIONS = {".csv", ".xlsx", ".xls"}
+
     def __init__(self, session: AsyncSession):
         self.session = session
         self.account_repo = AccountRepository(session)
         self.tx_repo = TransactionRepository(session)
 
+    def _sanitize_filename(self, filename: str) -> str:
+        """Sanitize filename to prevent path traversal vulnerabilities."""
+        clean = os.path.basename(filename.strip().replace("\\", "/"))
+        return clean or "uploaded_file.csv"
+
     def _parse_tabular_file(self, content: bytes, filename: str) -> List[Dict[str, Any]]:
-        # Validate file size
+        # 1. Validate non-empty content
+        if not content or len(content) == 0:
+            raise FileValidationException("The uploaded file is empty (0 bytes).")
+
+        # 2. Validate file size
         if len(content) > settings.MAX_UPLOAD_SIZE_BYTES:
             raise FileValidationException(
                 f"File size ({len(content)} bytes) exceeds the maximum allowed limit of {settings.MAX_UPLOAD_SIZE_BYTES} bytes."
             )
 
+        # 3. Validate file extension
+        sanitized_filename = self._sanitize_filename(filename)
+        _, ext = os.path.splitext(sanitized_filename.lower())
+        if ext not in self.ALLOWED_EXTENSIONS:
+            raise FileValidationException(
+                f"Unsupported file format '{ext}'. Please upload a CSV (.csv) or Excel (.xlsx, .xls) file."
+            )
+
         rows = []
-        if filename.lower().endswith(".csv"):
-            text = content.decode("utf-8-sig", errors="replace")
+        if ext == ".csv":
+            # Attempt decoding with UTF-8 BOM, UTF-8, then fallback to Latin-1
+            text = None
+            for encoding in ("utf-8-sig", "utf-8", "latin-1"):
+                try:
+                    text = content.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+
+            if text is None:
+                raise FileValidationException("Could not decode CSV file. Please ensure valid text encoding (UTF-8).")
+
             reader = csv.DictReader(io.StringIO(text))
+            if not reader.fieldnames:
+                raise FileValidationException("CSV file contains no valid headers or data columns.")
+
             for row in reader:
-                rows.append({k.strip(): (v.strip() if v else "") for k, v in row.items() if k})
-        elif filename.lower().endswith((".xlsx", ".xls")):
-            wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
-            ws = wb.active
-            iter_rows = list(ws.iter_rows(values_only=True))
-            if not iter_rows:
-                return []
-            header = [str(col).strip() if col is not None else f"col_{i}" for i, col in enumerate(iter_rows[0])]
-            for r in iter_rows[1:]:
-                if any(r):
-                    rows.append({header[i]: (str(val).strip() if val is not None else "") for i, val in enumerate(r) if i < len(header)})
-        else:
-            raise FileValidationException("Unsupported file format. Please upload CSV or Excel (.xlsx) file.")
+                clean_row = {k.strip(): (v.strip() if v else "") for k, v in row.items() if k}
+                if any(clean_row.values()):
+                    rows.append(clean_row)
+
+        elif ext in (".xlsx", ".xls"):
+            try:
+                wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True, read_only=True)
+                ws = wb.active
+                if ws is None:
+                    raise FileValidationException("Excel workbook contains no active worksheet.")
+                iter_rows = list(ws.iter_rows(values_only=True))
+                if not iter_rows:
+                    return []
+                header = [str(col).strip() if col is not None else f"col_{i}" for i, col in enumerate(iter_rows[0])]
+                for r in iter_rows[1:]:
+                    if any(r):
+                        row_dict = {header[i]: (str(val).strip() if val is not None else "") for i, val in enumerate(r) if i < len(header)}
+                        if any(row_dict.values()):
+                            rows.append(row_dict)
+            except Exception as e:
+                raise FileValidationException(f"Failed to parse Excel workbook: {str(e)}")
+
         return rows
 
     def _detect_columns(self, headers: List[str]) -> ColumnMapping:
         mapping = ColumnMapping()
         for col in headers:
             lower = col.lower()
-            if not mapping.date and any(w in lower for w in ["date", "time", "posted"]):
+            if not mapping.date and any(w in lower for w in ["date", "time", "posted", "txn_date", "transaction date"]):
                 mapping.date = col
-            elif not mapping.debit and any(w in lower for w in ["debit", "withdrawal", "spent"]):
+            elif not mapping.debit and any(w in lower for w in ["debit", "withdrawal", "spent", "dr", "withdraw"]):
                 mapping.debit = col
-            elif not mapping.credit and any(w in lower for w in ["credit", "deposit", "received"]):
+            elif not mapping.credit and any(w in lower for w in ["credit", "deposit", "received", "cr"]):
                 mapping.credit = col
-            elif not mapping.amount and any(w in lower for w in ["amount", "total", "net"]):
+            elif not mapping.amount and any(w in lower for w in ["amount", "total", "net", "txn_amount", "transaction amount"]):
                 mapping.amount = col
-            elif not mapping.description and any(w in lower for w in ["description", "narration", "particulars", "memo", "title"]):
+            elif not mapping.description and any(w in lower for w in ["description", "narration", "particulars", "memo", "title", "details", "remark"]):
                 mapping.description = col
-            elif not mapping.merchant and any(w in lower for w in ["merchant", "payee", "vendor"]):
+            elif not mapping.merchant and any(w in lower for w in ["merchant", "payee", "vendor", "party"]):
                 mapping.merchant = col
             elif not mapping.category and any(w in lower for w in ["category", "type", "tag"]):
                 mapping.category = col
@@ -77,15 +120,22 @@ class ImportService:
     async def preview_file(
         self, content: bytes, filename: str, user_id: str, account_id: Optional[str] = None
     ) -> ImportPreviewResponse:
-        rows = self._parse_tabular_file(content, filename)
+        sanitized_filename = self._sanitize_filename(filename)
+
+        if account_id:
+            account = await self.account_repo.get_by_id(account_id)
+            if not account or account.user_id != user_id:
+                raise EntityNotFoundException("Account", account_id)
+
+        rows = self._parse_tabular_file(content, sanitized_filename)
         if not rows:
-            raise FileValidationException("The uploaded file is empty.")
+            raise FileValidationException("The uploaded file contains no data rows.")
 
         headers = list(rows[0].keys())
         mapping = self._detect_columns(headers)
 
         return ImportPreviewResponse(
-            filename=filename,
+            filename=sanitized_filename,
             total_rows=len(rows),
             detected_columns=headers,
             suggested_mapping=mapping,
@@ -101,58 +151,96 @@ class ImportService:
         mapping: ColumnMapping,
         skip_duplicates: bool = True,
     ) -> ImportSummaryResponse:
+        sanitized_filename = self._sanitize_filename(filename)
+
+        # Validate account existence and user ownership
         account = await self.account_repo.get_by_id(account_id)
         if not account or account.user_id != user_id:
             raise EntityNotFoundException("Account", account_id)
 
-        rows = self._parse_tabular_file(content, filename)
+        rows = self._parse_tabular_file(content, sanitized_filename)
+        if not rows:
+            raise FileValidationException("The uploaded file contains no data rows to import.")
+
         imported = 0
         skipped = 0
         failed = 0
         errors: List[ImportErrorDetail] = []
-
+        seen_hashes_in_batch: Set[str] = set()
         balance_delta = Decimal("0.00")
 
         for idx, row in enumerate(rows, start=1):
             try:
                 # 1. Parse Date
                 date_val = None
-                date_str = row.get(mapping.date or "", "")
-                for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y"):
-                    try:
-                        date_val = datetime.datetime.strptime(date_str.split()[0], fmt).date()
-                        break
-                    except (ValueError, TypeError):
-                        continue
+                date_str = row.get(mapping.date or "", "").strip()
+                if date_str:
+                    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y", "%d.%m.%Y", "%Y.%m.%d"):
+                        try:
+                            date_val = datetime.datetime.strptime(date_str.split()[0], fmt).date()
+                            break
+                        except (ValueError, TypeError):
+                            continue
                 if not date_val:
                     date_val = datetime.date.today()
 
                 # 2. Parse Amount & Type with INR/USD currency symbol stripping
                 amount = Decimal("0.00")
                 tx_type = TransactionType.EXPENSE
+
                 if mapping.amount and row.get(mapping.amount):
                     raw_amt = (
                         row[mapping.amount]
                         .replace("₹", "")
                         .replace("$", "")
+                        .replace("€", "")
+                        .replace("£", "")
                         .replace(",", "")
                         .strip()
                     )
-                    amt_val = Decimal(raw_amt)
+                    try:
+                        amt_val = Decimal(raw_amt)
+                    except (InvalidOperation, ValueError):
+                        failed += 1
+                        errors.append(ImportErrorDetail(row_number=idx, reason=f"Invalid numeric amount '{raw_amt}'", data=row))
+                        continue
+
                     if amt_val < Decimal("0.00"):
                         amount = abs(amt_val)
                         tx_type = TransactionType.EXPENSE
                     else:
                         amount = amt_val
-                        tx_type = TransactionType.INCOME if "income" in row.get(mapping.type or "", "").lower() else TransactionType.EXPENSE
+                        raw_type_str = row.get(mapping.type or "", "").lower()
+                        tx_type = TransactionType.INCOME if "income" in raw_type_str or "credit" in raw_type_str or "deposit" in raw_type_str else TransactionType.EXPENSE
+
                 elif mapping.debit and row.get(mapping.debit):
                     raw_amt = row[mapping.debit].replace("₹", "").replace("$", "").replace(",", "").strip()
-                    amount = Decimal(raw_amt)
-                    tx_type = TransactionType.EXPENSE
+                    try:
+                        amount = Decimal(raw_amt)
+                        tx_type = TransactionType.EXPENSE
+                    except (InvalidOperation, ValueError):
+                        failed += 1
+                        errors.append(ImportErrorDetail(row_number=idx, reason=f"Invalid debit amount '{raw_amt}'", data=row))
+                        continue
+
                 elif mapping.credit and row.get(mapping.credit):
                     raw_amt = row[mapping.credit].replace("₹", "").replace("$", "").replace(",", "").strip()
-                    amount = Decimal(raw_amt)
-                    tx_type = TransactionType.INCOME
+                    try:
+                        amount = Decimal(raw_amt)
+                        tx_type = TransactionType.INCOME
+                    except (InvalidOperation, ValueError):
+                        failed += 1
+                        errors.append(ImportErrorDetail(row_number=idx, reason=f"Invalid credit amount '{raw_amt}'", data=row))
+                        continue
+                else:
+                    failed += 1
+                    errors.append(ImportErrorDetail(row_number=idx, reason="No mapped amount, debit, or credit column found for row", data=row))
+                    continue
+
+                if amount <= Decimal("0.00"):
+                    failed += 1
+                    errors.append(ImportErrorDetail(row_number=idx, reason=f"Amount must be strictly positive (got {amount})", data=row))
+                    continue
 
                 # 3. Description & Merchant
                 desc = row.get(mapping.description or "", "Imported Transaction").strip() or "Imported Transaction"
@@ -165,6 +253,12 @@ class ImportService:
                     amount=amount,
                     desc=desc
                 )
+
+                if import_hash in seen_hashes_in_batch:
+                    if skip_duplicates:
+                        skipped += 1
+                        continue
+                seen_hashes_in_batch.add(import_hash)
 
                 stmt = select(Transaction).where(
                     Transaction.user_id == user_id,
