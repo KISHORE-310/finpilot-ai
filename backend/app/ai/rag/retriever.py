@@ -57,8 +57,10 @@ class FinancialKnowledgeRetriever:
             context_blocks.append(f"### {doc.title} ({doc.topic})\nSource: {doc.source}\n{doc.content}")
             citations.append(
                 Citation(
+                    topic=doc.topic,
                     title=doc.title,
                     source=doc.source,
+                    source_url=getattr(doc, "source_url", None),
                     snippet=doc.content[:160].strip() + "...",
                 )
             )
