@@ -3,7 +3,7 @@ import hashlib
 import uuid
 from datetime import date
 from decimal import Decimal
-from sqlalchemy import Boolean, Column, Date, Enum, ForeignKey, Index, Numeric, String, Text
+from sqlalchemy import Boolean, CheckConstraint, Column, Date, Enum, ForeignKey, Index, Numeric, String, Text
 from sqlalchemy.orm import relationship
 from app.db.base import Base, TimestampMixin
 
@@ -20,6 +20,7 @@ class Transaction(Base, TimestampMixin):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     account_id = Column(String(36), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    transfer_account_id = Column(String(36), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True, index=True)
     category_id = Column(String(36), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True)
 
     amount = Column(Numeric(18, 2), nullable=False)
@@ -33,12 +34,14 @@ class Transaction(Base, TimestampMixin):
     notes = Column(Text, nullable=True)
 
     user = relationship("User", back_populates="transactions")
-    account = relationship("Account", back_populates="transactions")
+    account = relationship("Account", foreign_keys=[account_id], back_populates="transactions")
+    transfer_account = relationship("Account", foreign_keys=[transfer_account_id])
     category = relationship("Category", back_populates="transactions")
 
     __table_args__ = (
         Index("ix_transactions_user_date", "user_id", "transaction_date"),
         Index("ix_transactions_user_hash", "user_id", "import_hash"),
+        CheckConstraint("amount > 0", name="ck_transactions_positive_amount"),
     )
 
     @staticmethod

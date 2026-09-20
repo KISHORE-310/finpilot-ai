@@ -29,7 +29,7 @@ class Account(Base, TimestampMixin):
     is_active = Column(Boolean, default=True, nullable=False)
 
     user = relationship("User", back_populates="accounts")
-    transactions = relationship("Transaction", back_populates="account", cascade="all, delete-orphan")
+    transactions = relationship("Transaction", foreign_keys="[Transaction.account_id]", back_populates="account", cascade="all, delete-orphan")
     investments = relationship("Investment", back_populates="account", cascade="all, delete-orphan")
     income_records = relationship("Income", back_populates="account", cascade="all, delete-orphan")
     expenses = relationship("Expense", back_populates="account", cascade="all, delete-orphan")

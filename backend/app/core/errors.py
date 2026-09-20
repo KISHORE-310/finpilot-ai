@@ -68,3 +68,13 @@ class FileValidationException(FinPilotException):
             detail=detail,
             code="FILE_VALIDATION_ERROR",
         )
+
+
+class ValidationException(FinPilotException):
+    def __init__(self, detail: str, code: str = "VALIDATION_ERROR"):
+        super().__init__(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=detail,
+            code=code,
+        )
+

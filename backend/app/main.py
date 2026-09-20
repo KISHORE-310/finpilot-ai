@@ -1,4 +1,5 @@
 import time
+from contextlib import asynccontextmanager
 from typing import Any, Dict
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,9 +30,21 @@ from app.api.routes import (
     calculators_router,
 )
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: validate secrets on startup, clean up on shutdown."""
+    # Fail fast in production if secrets are missing or use dev defaults
+    settings.validate_production_secrets()
+    logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION} [{settings.ENVIRONMENT}]")
+    yield
+    logger.info("Application shutdown complete.")
+
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
+    lifespan=lifespan,
     openapi_url=f"{settings.API_V1_STR}/openapi.json" if settings.ENVIRONMENT != "production" else None,
     docs_url=f"{settings.API_V1_STR}/docs" if settings.ENVIRONMENT != "production" else None,
     redoc_url=f"{settings.API_V1_STR}/redoc" if settings.ENVIRONMENT != "production" else None,
