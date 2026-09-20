@@ -213,24 +213,37 @@ class ImportService:
                         raw_type_str = row.get(mapping.type or "", "").lower()
                         tx_type = TransactionType.INCOME if "income" in raw_type_str or "credit" in raw_type_str or "deposit" in raw_type_str else TransactionType.EXPENSE
 
-                elif mapping.debit and row.get(mapping.debit):
-                    raw_amt = row[mapping.debit].replace("₹", "").replace("$", "").replace(",", "").strip()
-                    try:
-                        amount = Decimal(raw_amt)
-                        tx_type = TransactionType.EXPENSE
-                    except (InvalidOperation, ValueError):
-                        failed += 1
-                        errors.append(ImportErrorDetail(row_number=idx, reason=f"Invalid debit amount '{raw_amt}'", data=row))
-                        continue
+                elif mapping.debit or mapping.credit:
+                    debit_val = Decimal("0.00")
+                    credit_val = Decimal("0.00")
+                    if mapping.debit and row.get(mapping.debit):
+                        raw_debit = row[mapping.debit].replace("₹", "").replace("$", "").replace(",", "").strip()
+                        if raw_debit:
+                            try:
+                                debit_val = Decimal(raw_debit)
+                            except (InvalidOperation, ValueError):
+                                failed += 1
+                                errors.append(ImportErrorDetail(row_number=idx, reason=f"Invalid debit amount '{raw_debit}'", data=row))
+                                continue
+                    if mapping.credit and row.get(mapping.credit):
+                        raw_credit = row[mapping.credit].replace("₹", "").replace("$", "").replace(",", "").strip()
+                        if raw_credit:
+                            try:
+                                credit_val = Decimal(raw_credit)
+                            except (InvalidOperation, ValueError):
+                                failed += 1
+                                errors.append(ImportErrorDetail(row_number=idx, reason=f"Invalid credit amount '{raw_credit}'", data=row))
+                                continue
 
-                elif mapping.credit and row.get(mapping.credit):
-                    raw_amt = row[mapping.credit].replace("₹", "").replace("$", "").replace(",", "").strip()
-                    try:
-                        amount = Decimal(raw_amt)
+                    if debit_val > Decimal("0.00"):
+                        amount = debit_val
+                        tx_type = TransactionType.EXPENSE
+                    elif credit_val > Decimal("0.00"):
+                        amount = credit_val
                         tx_type = TransactionType.INCOME
-                    except (InvalidOperation, ValueError):
+                    else:
                         failed += 1
-                        errors.append(ImportErrorDetail(row_number=idx, reason=f"Invalid credit amount '{raw_amt}'", data=row))
+                        errors.append(ImportErrorDetail(row_number=idx, reason="Neither debit nor credit contained a positive amount", data=row))
                         continue
                 else:
                     failed += 1

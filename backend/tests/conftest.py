@@ -22,6 +22,14 @@ from app.db.session import get_db
 from app.main import app
 from app.core.security import get_password_hash, create_access_token
 from app.db.models.user import User
+from app.core.rate_limit import rate_limit_auth, rate_limit_ai, rate_limit_import, rate_limit_general
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiters():
+    rate_limit_auth.reset()
+    rate_limit_ai.reset()
+    rate_limit_import.reset()
+    rate_limit_general.reset()
 
 test_engine = create_async_engine(
     "sqlite+aiosqlite:///:memory:",
