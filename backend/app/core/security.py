@@ -110,7 +110,6 @@ def decode_access_token(token: str) -> Optional[dict]:
     if not token or is_token_revoked(token):
         return None
     try:
-        # Decode and verify signature, expiration, and claims
         payload = jwt.decode(
             token,
             settings.SECRET_KEY,
@@ -120,15 +119,19 @@ def decode_access_token(token: str) -> Optional[dict]:
                 "verify_exp": True,
                 "verify_iat": True,
                 "verify_nbf": True,
-                "require": ["exp", "iat", "sub"],
+                "verify_aud": False,
+                "verify_iss": False,
             }
         )
+        # Check sub exists
+        if not payload.get("sub"):
+            return None
         # Verify issuer and audience if present in token
         if "iss" in payload and payload["iss"] != settings.JWT_ISSUER:
             return None
         if "aud" in payload and payload["aud"] != settings.JWT_AUDIENCE:
             return None
-        # Verify token type
+        # Verify token type if present
         if payload.get("type") and payload.get("type") != "access":
             return None
         # Verify JTI revocation
