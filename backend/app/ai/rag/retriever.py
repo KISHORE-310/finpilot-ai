@@ -4,6 +4,15 @@ from app.ai.rag.documents import KnowledgeDocument
 from app.ai.rag.ingestion import load_knowledge_documents
 from app.ai.schemas.chat import Citation
 
+STOP_WORDS = {
+    "a", "an", "the", "and", "or", "in", "on", "at", "to", "for", "of", "with",
+    "by", "from", "is", "are", "was", "were", "be", "been", "being", "have", "has",
+    "had", "do", "does", "did", "how", "what", "why", "when", "where", "who", "which",
+    "this", "that", "these", "those", "i", "you", "he", "she", "it", "we", "they",
+    "my", "your", "his", "her", "its", "our", "their", "me", "him", "us", "them",
+    "can", "could", "would", "should", "will"
+}
+
 
 class FinancialKnowledgeRetriever:
     def __init__(self):
@@ -11,12 +20,15 @@ class FinancialKnowledgeRetriever:
 
     def retrieve(self, query: str, top_k: int = 2) -> List[Tuple[KnowledgeDocument, float]]:
         """
-        Deterministic keyword & topic similarity retriever for curated knowledge base.
+        Deterministic keyword & topic similarity retriever for curated knowledge base with stop-word filtering.
         """
         if not self.documents:
             return []
 
-        query_terms = set(re.findall(r"\w+", query.lower()))
+        query_terms = {w for w in re.findall(r"\w+", query.lower()) if len(w) > 2 and w not in STOP_WORDS}
+        if not query_terms:
+            return []
+
         scored: List[Tuple[KnowledgeDocument, float]] = []
 
         for doc in self.documents:
@@ -45,13 +57,11 @@ class FinancialKnowledgeRetriever:
             context_blocks.append(f"### {doc.title} ({doc.topic})\nSource: {doc.source}\n{doc.content}")
             citations.append(
                 Citation(
-                    topic=doc.topic,
                     title=doc.title,
                     source=doc.source,
-                    source_url=doc.source_url,
-                    snippet=doc.snippet,
+                    snippet=doc.content[:160].strip() + "...",
                 )
             )
 
-        return ("\n\n---\n\n".join(context_blocks), citations)
-
+        context_str = "\n\n".join(context_blocks)
+        return context_str, citations

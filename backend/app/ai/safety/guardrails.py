@@ -2,22 +2,24 @@ import re
 from typing import Optional, Tuple
 
 PROMPT_INJECTION_PATTERNS = [
-    r"ignore\s+(all\s+)?(previous|prior)\s+instructions",
-    r"you\s+are\s+now\s+in\s+developer\s+mode",
-    r"reveal\s+(all\s+)?(api\s+keys|passwords|secrets|database)",
-    r"system\s+prompt\s+override",
+    r"ignore\s+(all\s+|your\s+|any\s+)?(previous|prior)\s+instructions",
+    r"you\s+are\s+now\s+in\s+(developer|debug)\s+mode",
+    r"reveal\s+(all\s+)?(api\s+keys|passwords|secrets|database|system\s+prompt)",
+    r"system\s+prompt\s+(override|leak|reveal)",
     r"bypass\s+(all\s+)?safety",
+    r"(confidential|other\s+user['’]?s?)\s+transactions",
 ]
 
 EXECUTION_INTENT_PATTERNS = [
-    r"^(buy|purchase|sell|trade|short)\s+\d+\s+(shares|stocks|crypto|coins)",
-    r"^(transfer|send|wire)\s+[₹$]?\d+",
-    r"^execute\s+(a\s+)?(trade|wire|transfer|transaction)",
-    r"^(pay|settle)\s+my\s+bill\s+now",
+    r"(buy|purchase|sell|trade|short)\s+\d+\s+(shares|stocks|crypto|coins)",
+    r"(transfer|send|wire)\s+[₹$]?\d+",
+    r"execute\s+(a\s+)?(trade|wire|transfer|transaction)",
+    r"(pay|settle)\s+my\s+bill\s+now",
 ]
 
 GUARANTEED_RETURN_PATTERNS = [
     r"guarantee\s+(me\s+)?a\s+return",
+    r"guaranteed\s+(\d+%\s+)?(risk-free\s+)?returns?",
     r"which\s+stock\s+will\s+100%\s+make\s+me\s+rich",
     r"tell\s+me\s+a\s+guaranteed\s+investment",
 ]
@@ -60,8 +62,3 @@ class SafetyGuardrails:
                 )
 
         return (True, None)
-
-    @staticmethod
-    def sanitize_untrusted_text(text: str) -> str:
-        """Sanitizes text from transactions/merchants before model ingestion."""
-        return text.replace("```", "").strip()
