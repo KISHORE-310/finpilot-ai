@@ -22,6 +22,7 @@ export default function TransactionsPage() {
 
   // Form State
   const [accountId, setAccountId] = useState("");
+  const [transferAccountId, setTransferAccountId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [amount, setAmount] = useState("");
   const [txType, setTxType] = useState<TransactionType>("expense");
@@ -70,11 +71,22 @@ export default function TransactionsPage() {
       alert("Please select or create an account first.");
       return;
     }
+    if (txType === "transfer") {
+      if (!transferAccountId) {
+        alert("Please select a destination account for the transfer.");
+        return;
+      }
+      if (transferAccountId === accountId) {
+        alert("Source and destination accounts must be different.");
+        return;
+      }
+    }
     try {
       setSubmitting(true);
       await api.post("/transactions", {
         account_id: accountId,
-        category_id: categoryId || null,
+        transfer_account_id: txType === "transfer" ? transferAccountId : null,
+        category_id: txType !== "transfer" && categoryId ? categoryId : null,
         amount: parseFloat(amount),
         currency: "INR",
         transaction_type: txType,
@@ -86,6 +98,8 @@ export default function TransactionsPage() {
       setAmount("");
       setDescription("");
       setMerchantName("");
+      setTransferAccountId("");
+      setCategoryId("");
       await loadData();
     } catch (err: any) {
       alert(err?.message || "Failed to create transaction.");
@@ -245,26 +259,19 @@ export default function TransactionsPage() {
               </div>
             ) : (
               <form onSubmit={handleCreate} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Account</label>
-                  <select
-                    required
-                    value={accountId}
-                    onChange={(e) => setAccountId(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
-                  >
-                    {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-300 mb-1">Type</label>
                     <select
                       value={txType}
-                      onChange={(e) => setTxType(e.target.value as TransactionType)}
+                      onChange={(e) => {
+                        const newType = e.target.value as TransactionType;
+                        setTxType(newType);
+                        if (newType === "transfer" && !transferAccountId) {
+                          const otherAcc = accounts.find((a) => a.id !== accountId);
+                          if (otherAcc) setTransferAccountId(otherAcc.id);
+                        }
+                      }}
                       className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
                     >
                       <option value="expense">Expense</option>
@@ -285,6 +292,76 @@ export default function TransactionsPage() {
                     />
                   </div>
                 </div>
+
+                {txType === "transfer" ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">From Account (Source)</label>
+                      <select
+                        required
+                        value={accountId}
+                        onChange={(e) => {
+                          setAccountId(e.target.value);
+                          if (transferAccountId === e.target.value) {
+                            const nextOther = accounts.find((a) => a.id !== e.target.value);
+                            if (nextOther) setTransferAccountId(nextOther.id);
+                          }
+                        }}
+                        className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                      >
+                        {accounts.map((a) => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">To Account (Destination)</label>
+                      <select
+                        required
+                        value={transferAccountId}
+                        onChange={(e) => setTransferAccountId(e.target.value)}
+                        className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="" disabled>Select destination account...</option>
+                        {accounts.filter((a) => a.id !== accountId).map((a) => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                      {accounts.length < 2 && (
+                        <p className="text-xs text-amber-400 mt-1 col-span-2">⚠️ You need at least 2 accounts to make a transfer between them.</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Account</label>
+                      <select
+                        required
+                        value={accountId}
+                        onChange={(e) => setAccountId(e.target.value)}
+                        className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                      >
+                        {accounts.map((a) => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Category (Optional)</label>
+                      <select
+                        value={categoryId}
+                        onChange={(e) => setCategoryId(e.target.value)}
+                        className="w-full px-3.5 py-2 bg-[#0f1117] border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="">Uncategorized</option>
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">Date</label>
