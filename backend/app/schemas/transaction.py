@@ -10,7 +10,7 @@ class TransactionBase(BaseModel):
     transfer_account_id: Optional[str] = None
     category_id: Optional[str] = None
     amount: Decimal = Field(..., gt=Decimal("0.00"), description="Transaction amount must be strictly positive")
-    currency: str = Field(default="USD", min_length=3, max_length=10)
+    currency: str = Field(default="INR", min_length=3, max_length=10)
     transaction_type: TransactionType
     transaction_date: datetime.date = Field(default_factory=datetime.date.today)
     description: str = Field(..., min_length=1, max_length=500)
