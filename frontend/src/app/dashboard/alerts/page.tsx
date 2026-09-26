@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
 import { AlertResponse, AlertSummary } from "@/types";
+import {
+  SectionHeader,
+  StatCard,
+  Badge,
+  EmptyState,
+  TableSkeleton,
+} from "@/components/ui";
+import { Bell, AlertTriangle, AlertCircle, Info, CheckCircle2, Play } from "lucide-react";
 
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<AlertResponse[]>([]);
@@ -10,25 +18,25 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true);
   const [unreadOnly, setUnreadOnly] = useState(false);
 
-  const fetchAlerts = async () => {
+  const fetchAlerts = useCallback(async () => {
     try {
       setLoading(true);
       const [list, sum] = await Promise.all([
         api.alerts.list(unreadOnly),
-        api.alerts.summary(),
+        api.alerts.summary().catch(() => null),
       ]);
-      setAlerts(list);
+      setAlerts(list || []);
       setSummary(sum);
     } catch (err: any) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [unreadOnly]);
 
   useEffect(() => {
     fetchAlerts();
-  }, [unreadOnly]);
+  }, [fetchAlerts]);
 
   const handleMarkRead = async (id: string) => {
     try {
@@ -49,91 +57,131 @@ export default function AlertsPage() {
     }
   };
 
-  return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-[#1a1d2e] p-6 rounded-2xl border border-slate-700/50">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Financial Alerts</h1>
-          <p className="text-slate-400 text-sm mt-1">Rule-based deterministic notifications and warnings</p>
-        </div>
+  const criticalCount = alerts.filter((a) => a.severity === "critical").length;
+  const unreadCount = summary?.unread_count || alerts.filter((a) => !a.is_read).length;
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setUnreadOnly(!unreadOnly)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
-              unreadOnly
-                ? "bg-blue-600 text-white border-blue-500"
-                : "bg-slate-800 text-slate-300 border-slate-700 hover:text-white"
-            }`}
-          >
-            {unreadOnly ? "Showing Unread" : "All Alerts"}
-          </button>
-          <button
-            onClick={handleEvaluate}
-            className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white rounded-lg text-xs font-bold shadow"
-          >
-            Run Alert Rules
-          </button>
-        </div>
+  return (
+    <div className="space-y-6 max-w-5xl mx-auto pb-12 animate-in fade-in duration-300">
+      {/* Header */}
+      <SectionHeader
+        title="Financial Alert Center"
+        subtitle="Deterministic rule-based notifications, anomaly flags, and budget threshold triggers"
+        actions={
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setUnreadOnly(!unreadOnly)}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${
+                unreadOnly
+                  ? "bg-blue-600 text-white border-blue-500 shadow-sm"
+                  : "bg-[#0a0c14] text-slate-300 border-slate-800 hover:text-white"
+              }`}
+            >
+              {unreadOnly ? "Showing Unread" : "All Alerts"}
+            </button>
+            <button
+              type="button"
+              onClick={handleEvaluate}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition active:scale-[0.98]"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              Evaluate Rules
+            </button>
+          </div>
+        }
+      />
+
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
+        <StatCard
+          label="Unread Notifications"
+          value={`${unreadCount} Unread`}
+          accentColor={unreadCount > 0 ? "amber" : "default"}
+          subtitle="Pending user review"
+        />
+        <StatCard
+          label="Critical Warnings"
+          value={`${criticalCount} Critical`}
+          accentColor={criticalCount > 0 ? "rose" : "default"}
+          subtitle="Significant threshold overruns"
+        />
+        <StatCard
+          label="Total Logged Alerts"
+          value={`${alerts.length} Total`}
+          accentColor="default"
+          subtitle="Historical alert log"
+        />
       </div>
 
       {loading ? (
-        <div className="h-48 bg-[#1a1d2e] rounded-2xl border border-slate-700/50 animate-pulse flex items-center justify-center text-slate-500">
-          Loading alerts...
+        <div className="space-y-3">
+          <TableSkeleton rows={3} cols={3} />
         </div>
       ) : alerts.length === 0 ? (
-        <div className="bg-[#1a1d2e] p-12 rounded-2xl border border-slate-700/50 text-center">
-          <div className="w-12 h-12 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h3 className="text-base font-semibold text-white">No active alerts</h3>
-          <p className="text-xs text-slate-400 mt-1">All financial rules and budgets are currently in nominal condition.</p>
-        </div>
+        <EmptyState
+          icon={<CheckCircle2 className="w-7 h-7 text-emerald-400" />}
+          title="All Systems Nominal — No Active Alerts"
+          description="Your budget pacing, expense thresholds, and account balances are healthy. Click 'Evaluate Rules' at any time to execute the deterministic rule engine over your latest transactions."
+          actionText="Run Rules Engine"
+          onAction={handleEvaluate}
+        />
       ) : (
         <div className="space-y-3">
-          {alerts.map((al) => (
-            <div
-              key={al.id}
-              className={`p-4 rounded-xl border flex items-start justify-between gap-4 transition ${
-                al.is_read
-                  ? "bg-[#1a1d2e]/60 border-slate-800 text-slate-400"
-                  : al.severity === "critical"
-                  ? "bg-rose-500/10 border-rose-500/30 text-white"
-                  : al.severity === "warning"
-                  ? "bg-amber-500/10 border-amber-500/30 text-white"
-                  : "bg-blue-500/10 border-blue-500/30 text-white"
-              }`}
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                      al.severity === "critical"
-                        ? "bg-rose-500/20 text-rose-300"
-                        : al.severity === "warning"
-                        ? "bg-amber-500/20 text-amber-300"
-                        : "bg-blue-500/20 text-blue-300"
+          {alerts.map((al) => {
+            const isCrit = al.severity === "critical";
+            const isWarn = al.severity === "warning";
+
+            return (
+              <div
+                key={al.id}
+                className={`p-4 sm:p-5 rounded-2xl border flex items-start justify-between gap-4 transition ${
+                  al.is_read
+                    ? "bg-[#131622]/60 border-slate-800/80 text-slate-400 opacity-75"
+                    : isCrit
+                    ? "bg-rose-500/10 border-rose-500/30 text-white shadow-sm"
+                    : isWarn
+                    ? "bg-amber-500/10 border-amber-500/30 text-white shadow-sm"
+                    : "bg-[#131622] border-slate-800/90 text-white shadow-sm"
+                }`}
+              >
+                <div className="flex items-start gap-3.5">
+                  <div
+                    className={`p-2 rounded-xl mt-0.5 shrink-0 ${
+                      isCrit
+                        ? "bg-rose-500/20 text-rose-400"
+                        : isWarn
+                        ? "bg-amber-500/20 text-amber-400"
+                        : "bg-blue-500/20 text-blue-400"
                     }`}
                   >
-                    {al.severity}
-                  </span>
-                  <h3 className="font-bold text-sm text-white">{al.title}</h3>
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">{al.message}</p>
-              </div>
+                    {isCrit && <AlertCircle className="w-4 h-4" />}
+                    {isWarn && <AlertTriangle className="w-4 h-4" />}
+                    {!isCrit && !isWarn && <Info className="w-4 h-4" />}
+                  </div>
 
-              {!al.is_read && (
-                <button
-                  onClick={() => handleMarkRead(al.id)}
-                  className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium shrink-0 transition"
-                >
-                  Mark Read
-                </button>
-              )}
-            </div>
-          ))}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={isCrit ? "danger" : isWarn ? "warning" : "info"} size="sm">
+                        {al.severity.toUpperCase()}
+                      </Badge>
+                      <h3 className="font-bold text-xs sm:text-sm text-white tracking-tight">{al.title}</h3>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">{al.message}</p>
+                  </div>
+                </div>
+
+                {!al.is_read && (
+                  <button
+                    type="button"
+                    onClick={() => handleMarkRead(al.id)}
+                    className="px-3 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/60 rounded-xl text-xs font-semibold shrink-0 transition active:scale-95"
+                  >
+                    Mark Read
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

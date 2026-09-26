@@ -74,6 +74,7 @@ export interface Transaction {
   id: string;
   user_id: string;
   account_id: string;
+  transfer_account_id?: string | null;
   category_id: string | null;
   amount: string;
   currency: string;
@@ -593,10 +594,11 @@ export interface MessageResponse {
 // ==========================================
 
 export interface Citation {
-  topic: string;
-  title: string;
+  topic?: string;
+  title?: string;
   source: string;
   source_url?: string;
+  url?: string;
   snippet?: string;
 }
 

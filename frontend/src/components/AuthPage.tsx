@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiClient } from "@/lib/api";
+import { Badge } from "@/components/ui/Badge";
 
 const api = new ApiClient();
 
@@ -35,82 +36,118 @@ export function AuthPage({ initialMode = "login" }: { initialMode?: "login" | "r
       router.push("/dashboard");
     } catch (err: unknown) {
       const e = err as { message?: string };
-      setError(e?.message || "Authentication failed. Please try again.");
+      setError(e?.message || "Authentication failed. Please check your credentials.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0f1117] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 mb-4">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="min-h-screen bg-[#0a0c14] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Background radial ambient lights */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+        {/* Brand Icon & Heading */}
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 shadow-xl shadow-blue-500/20 mb-4 ring-1 ring-white/20">
+            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white">FinPilot AI</h1>
-          <p className="text-slate-400 mt-1 text-sm">Your Agentic Personal Financial Analyst</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white">FinPilot AI</h1>
+          <p className="mt-1 text-xs text-slate-400">Agentic Personal Financial Intelligence & Double-Entry Ledger</p>
         </div>
 
-        {/* Card */}
-        <div className="bg-[#1a1d2e] rounded-2xl border border-slate-700/50 p-8 shadow-xl">
-          <h2 className="text-xl font-semibold text-white mb-6">
-            {isRegister ? "Create an account" : "Welcome back"}
-          </h2>
+        {/* Auth Box Container */}
+        <div className="mt-8 bg-[#111420] border border-slate-800/90 rounded-2xl p-8 shadow-2xl relative">
+          {/* Mode Switch Tabs */}
+          <div className="flex bg-[#0a0c14] p-1 rounded-xl border border-slate-800/80 mb-6">
+            <button
+              type="button"
+              onClick={() => { setIsRegister(false); setError(""); }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                !isRegister
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Sign In to Ledger
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsRegister(true); setError(""); }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                isRegister
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Create Account
+            </button>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isRegister && (
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">Full Name</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Full Legal Name
+                </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="John Doe"
+                  placeholder="e.g. Anand Sharma"
                   required
-                  className="w-full px-4 py-2.5 bg-[#0f1117] border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                  className="w-full px-4 py-2.5 bg-[#0a0c14] border border-slate-800 rounded-xl text-white placeholder-slate-600 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Email</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                Email Address
+              </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="you@domain.com"
                 required
-                className="w-full px-4 py-2.5 bg-[#0f1117] border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                className="w-full px-4 py-2.5 bg-[#0a0c14] border border-slate-800 rounded-xl text-white placeholder-slate-600 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                Password
+              </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="••••••••••••"
                 required
                 minLength={8}
-                className="w-full px-4 py-2.5 bg-[#0f1117] border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                className="w-full px-4 py-2.5 bg-[#0a0c14] border border-slate-800 rounded-xl text-white placeholder-slate-600 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
               />
+              <span className="text-[11px] text-slate-500 mt-1 block">Minimum 8 characters with alphanumeric security</span>
             </div>
 
             {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                {error}
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>{error}</span>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-500 to-violet-600 text-white font-semibold rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-[#1a1d2e] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-semibold rounded-xl text-sm transition shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -118,24 +155,31 @@ export function AuthPage({ initialMode = "login" }: { initialMode?: "login" | "r
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
-                  {isRegister ? "Creating account..." : "Signing in..."}
+                  {isRegister ? "Creating Isolated Ledger..." : "Authenticating Session..."}
                 </span>
               ) : (
-                isRegister ? "Create Account" : "Sign In"
+                isRegister ? "Create Free Account →" : "Access Financial Vault →"
               )}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-slate-400 text-sm">
-            {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button
-              onClick={() => { setIsRegister(!isRegister); setError(""); }}
-              className="text-blue-400 hover:text-blue-300 font-medium transition"
-            >
-              {isRegister ? "Sign in" : "Create one"}
-            </button>
-          </p>
+          {/* Trust badges footer */}
+          <div className="mt-6 pt-6 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              256-Bit Cryptographic TLS
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+              INR Decimal Accuracy
+            </span>
+          </div>
         </div>
+
+        {/* Global Security Policy Note */}
+        <p className="mt-6 text-center text-xs text-slate-500">
+          FinPilot AI enforces double-entry verification and deterministic financial math.
+        </p>
       </div>
     </div>
   );
