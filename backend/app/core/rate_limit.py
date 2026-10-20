@@ -10,6 +10,7 @@ class InMemoryRateLimiter:
     """
     High-performance sliding-window in-memory rate limiter with thread-safe locks
     and automatic expired timestamp eviction.
+    Enforces proxy verification to prevent spoofed X-Forwarded-For header attacks.
     """
 
     def __init__(self, key_prefix: str, limit_provider: Callable[[], int], window_seconds: int = 60):
@@ -20,12 +21,20 @@ class InMemoryRateLimiter:
         self._lock = threading.Lock()
 
     def _get_client_identifier(self, request: Request) -> str:
-        # Prefer X-Forwarded-For if behind proxy, fallback to client host
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            client_ip = forwarded.split(",")[0].strip()
+        direct_ip = request.client.host if request.client else "unknown_client"
+        trusted_proxies = settings.trusted_proxies_list
+
+        # Trust X-Forwarded-For ONLY when request originates from explicitly configured trusted proxies
+        if direct_ip in trusted_proxies:
+            forwarded = request.headers.get("X-Forwarded-For")
+            if forwarded:
+                client_ip = forwarded.split(",")[0].strip()
+            else:
+                client_ip = direct_ip
         else:
-            client_ip = request.client.host if request.client else "unknown_client"
+            # Client supplied headers are ignored; use direct connected IP
+            client_ip = direct_ip
+
         return f"{self.key_prefix}:{client_ip}"
 
     def check_rate_limit(self, request: Request) -> None:

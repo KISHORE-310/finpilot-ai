@@ -45,6 +45,8 @@ class ChatResponse(BaseModel):
     citations: List[Citation] = []
     tools_used: List[str] = []
     guardrail_intervened: bool = False
+    is_mock: bool = False
+    provider: str = ""
     disclaimer: str = (
         "FinPilot AI provides personal financial analysis and educational information based on your recorded data. "
         "It does not provide certified financial, tax, legal, or investment advice."
@@ -100,3 +102,7 @@ class AIHealthResponse(BaseModel):
     knowledge_docs_count: int
     rag_documents_count: int
     rate_limit_per_minute: int
+    mode: str = "mock"  # "live", "mock", "offline", "degraded"
+    is_mock: bool = True
+    status_label: str = "Deterministic Mock (Development / Offline)"
+    rag_persistence: str = "in_memory"  # "persistent_pgvector" or "in_memory"

@@ -4,9 +4,9 @@ services:
     container_name: finpilot-postgres-prod
     restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set in production .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in production .env}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set in production .env}
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:
@@ -29,10 +29,11 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       SYNC_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      SECRET_KEY: ${SECRET_KEY}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in production .env}
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 1440
-      CORS_ORIGINS: ${CORS_ORIGINS}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS must be set in production .env}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1,::1}
       ENVIRONMENT: production
       LOG_LEVEL: INFO
       LLM_PROVIDER: ${LLM_PROVIDER:-openai}
@@ -56,7 +57,7 @@ services:
     depends_on:
       - api
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL must be set in production .env}
       INTERNAL_API_URL: http://api:8000/api/v1
     ports:
       - "${WEB_PORT:-3000}:3000"

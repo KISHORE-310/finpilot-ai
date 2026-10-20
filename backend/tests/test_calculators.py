@@ -1,6 +1,7 @@
 import pytest
 from decimal import Decimal
 from httpx import AsyncClient
+from app.core.errors import ValidationException
 from app.services.calculator_service import CalculatorService
 from app.schemas.calculator import (
     TaxCalculatorRequest,
@@ -41,6 +42,63 @@ def test_tax_calculator_high_deductions_favors_old_regime():
     assert res.old_regime.total_tax_liability < res.new_regime.total_tax_liability
     assert res.recommended_regime == "OLD"
     assert res.tax_savings_with_recommended > Decimal("0.00")
+
+
+def test_tax_calculator_fy_2023_24_slabs_and_rebate():
+    """FY 2023-24 (AY 2024-25) has ₹50,000 std deduction and 6 slabs."""
+    req = TaxCalculatorRequest(
+        financial_year="2023-24",
+        gross_annual_income=Decimal("750000.00"),
+    )
+    res = CalculatorService.calculate_tax(req)
+    assert res.financial_year == "2023-24"
+    assert res.assessment_year == "2024-25"
+    assert res.new_regime.standard_deduction == Decimal("50000.00")
+    assert res.new_regime.taxable_income == Decimal("700000.00")
+    # For 7L taxable in 2023-24: 0-3L 0, 3-6L 15k, 6-7L 10k -> 25k slab tax
+    assert res.new_regime.slab_tax == Decimal("25000.00")
+    assert res.new_regime.rebate_87a == Decimal("25000.00")
+    assert res.new_regime.total_tax_liability == Decimal("0.00")
+
+
+def test_tax_calculator_fy_2024_25_revised_slabs():
+    """FY 2024-25 (AY 2025-26) has ₹75,000 std deduction and 5 slabs."""
+    req = TaxCalculatorRequest(
+        financial_year="2024-25",
+        gross_annual_income=Decimal("1000000.00"),
+    )
+    res = CalculatorService.calculate_tax(req)
+    assert res.financial_year == "2024-25"
+    assert res.assessment_year == "2025-26"
+    assert res.new_regime.standard_deduction == Decimal("75000.00")
+    # Taxable = 925,000. Slabs: 0-3L 0, 3-7L (4L*5%)=20,000, 7-9.25L (2.25L*10%)=22,500. Total = 42,500 + 4% cess = 44,200.
+    assert res.new_regime.taxable_income == Decimal("925000.00")
+    assert res.new_regime.slab_tax == Decimal("42500.00")
+    assert res.new_regime.health_education_cess_4pct == Decimal("1700.00")
+    assert res.new_regime.total_tax_liability == Decimal("44200.00")
+
+
+def test_tax_calculator_unsupported_year_rejected():
+    """Unsupported years must be explicitly rejected with a clear error."""
+    req = TaxCalculatorRequest(
+        financial_year="2020-21",
+        gross_annual_income=Decimal("800000.00"),
+    )
+    with pytest.raises(ValidationException) as exc_info:
+        CalculatorService.calculate_tax(req)
+    assert "not supported" in str(exc_info.value.detail)
+
+
+def test_tax_calculator_zero_income_boundary():
+    """Zero gross income yields zero tax across both regimes."""
+    req = TaxCalculatorRequest(
+        financial_year="2024-25",
+        gross_annual_income=Decimal("0.00"),
+    )
+    res = CalculatorService.calculate_tax(req)
+    assert res.new_regime.total_tax_liability == Decimal("0.00")
+    assert res.old_regime.total_tax_liability == Decimal("0.00")
+    assert res.new_regime.effective_tax_rate_pct == Decimal("0.00")
 
 
 def test_fire_calculator_math():
@@ -97,6 +155,15 @@ async def test_calculators_api_endpoints(client: AsyncClient, auth_headers: dict
     assert "recommended_regime" in tax_data
     assert "new_regime" in tax_data
     assert "old_regime" in tax_data
+    assert tax_data["assessment_year"] == "2025-26"
+
+    # Unsupported year
+    invalid_tax_res = await client.post(
+        "/api/v1/calculators/tax",
+        json={"financial_year": "1999-00", "gross_annual_income": 500000.0},
+        headers=auth_headers
+    )
+    assert invalid_tax_res.status_code == 400
 
     # FIRE API
     fire_payload = {

@@ -30,6 +30,7 @@ async def create_expense(exp_in: ExpenseCreate, sp_db: AsyncSession = Depends(ge
 
 
 @router.patch("/{id}", response_model=ExpenseResponse)
+@router.put("/{id}", response_model=ExpenseResponse)
 async def update_expense(id: str, exp_in: ExpenseUpdate, sp_db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     service = ExpenseService(sp_db)
     return await service.update_expense(id=id, user_id=current_user.id, expense_in=exp_in)

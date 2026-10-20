@@ -60,8 +60,29 @@ async def create_transaction(
     return await service.create_transaction(user_id=current_user.id, tx_in=tx_in)
 
 
+@router.post("/backfill", response_model=dict)
+async def backfill_ledger(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Safely backfill canonical Transactions for existing Income and Expense records."""
+    from app.services.income_service import IncomeService
+    from app.services.expense_service import ExpenseService
+    inc_service = IncomeService(db)
+    exp_service = ExpenseService(db)
+    inc_count = await inc_service.backfill_canonical_transactions(user_id=str(current_user.id))
+    exp_count = await exp_service.backfill_canonical_transactions(user_id=str(current_user.id))
+    await db.commit()
+    return {
+        "status": "success",
+        "backfilled_income": inc_count,
+        "backfilled_expenses": exp_count,
+        "total_backfilled": inc_count + exp_count,
+    }
+
+
 @router.get("/{id}", response_model=TransactionResponse)
-async def get_transaction_by_id(
+async def get_transaction(
     id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -70,6 +91,7 @@ async def get_transaction_by_id(
     return await service.get_transaction(tx_id=id, user_id=current_user.id)
 
 
+@router.put("/{id}", response_model=TransactionResponse)
 @router.patch("/{id}", response_model=TransactionResponse)
 async def update_transaction(
     id: str,

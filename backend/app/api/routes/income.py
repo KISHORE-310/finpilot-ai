@@ -30,6 +30,7 @@ async def create_income(income_in: IncomeCreate, sp_db: AsyncSession = Depends(g
 
 
 @router.patch("/{id}", response_model=IncomeResponse)
+@router.put("/{id}", response_model=IncomeResponse)
 async def update_income(id: str, income_in: IncomeUpdate, sp_db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     service = IncomeService(sp_db)
     return await service.update_income(income_id=id, user_id=current_user.id, income_in=income_in)

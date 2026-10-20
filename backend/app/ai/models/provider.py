@@ -1,4 +1,4 @@
-﻿import json
+import json
 import re
 from typing import Any, Dict, List, Optional, Tuple
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -315,3 +315,39 @@ def get_chat_model() -> BaseChatModel:
         except Exception:
             return DeterministicMockFinancialLLM()
     return DeterministicMockFinancialLLM()
+
+
+def get_ai_provider_status() -> dict:
+    """Safe, transparent operational status check for AI Provider."""
+    if ai_settings.LLM_PROVIDER == "mock":
+        return {
+            "mode": "mock",
+            "provider": "mock",
+            "model": "finpilot-deterministic-mock",
+            "is_mock": True,
+            "status_label": "Deterministic Mock (Development / Offline)",
+        }
+    if ai_settings.LLM_PROVIDER == "openai":
+        if ai_settings.LLM_API_KEY and len(ai_settings.LLM_API_KEY.strip()) > 5:
+            return {
+                "mode": "live",
+                "provider": "openai",
+                "model": ai_settings.LLM_MODEL,
+                "is_mock": False,
+                "status_label": f"Live OpenAI ({ai_settings.LLM_MODEL})",
+            }
+        else:
+            return {
+                "mode": "mock",
+                "provider": "mock",
+                "model": "finpilot-deterministic-mock",
+                "is_mock": True,
+                "status_label": "Mock Fallback (No OpenAI API Key)",
+            }
+    return {
+        "mode": "offline",
+        "provider": ai_settings.LLM_PROVIDER,
+        "model": ai_settings.LLM_MODEL,
+        "is_mock": True,
+        "status_label": f"Offline ({ai_settings.LLM_PROVIDER})",
+    }

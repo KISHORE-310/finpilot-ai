@@ -630,6 +630,8 @@ export interface ChatResponse {
   citations: Citation[];
   tools_used: string[];
   guardrail_intervened?: boolean;
+  is_mock?: boolean;
+  provider?: string;
   disclaimer?: string;
 }
 
@@ -659,6 +661,10 @@ export interface AIHealthResponse {
   knowledge_docs_count: number;
   rag_documents_count: number;
   rate_limit_per_minute: number;
+  mode?: "live" | "mock" | "offline" | "degraded" | string;
+  is_mock?: boolean;
+  status_label?: string;
+  rag_persistence?: "persistent_pgvector" | "in_memory" | string;
 }
 
 // ──────────────────────────────────────────────

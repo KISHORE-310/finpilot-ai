@@ -1,11 +1,11 @@
-﻿from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from decimal import Decimal
 
 
 # --- Tax Calculator Schemas ---
 class TaxCalculatorRequest(BaseModel):
-    financial_year: str = Field("2024-25", description="Financial Year, e.g. 2024-25 or 2025-26")
+    financial_year: str = Field("2024-25", description="Financial Year, e.g. 2023-24, 2024-25, or 2025-26")
     gross_annual_income: Decimal = Field(..., ge=0, description="Gross total annual salary/income in ₹")
     basic_salary: Optional[Decimal] = Field(None, ge=0, description="Basic salary for HRA calculation")
     hra_received: Decimal = Field(Decimal("0.00"), ge=0, description="HRA component received in ₹")
@@ -36,11 +36,17 @@ class TaxRegimeBreakdown(BaseModel):
 
 class TaxCalculatorResponse(BaseModel):
     financial_year: str
+    assessment_year: str = ""
+    supported_years: List[str] = ["2023-24", "2024-25", "2025-26"]
     recommended_regime: str  # "NEW" or "OLD"
     tax_savings_with_recommended: Decimal
     new_regime: TaxRegimeBreakdown
     old_regime: TaxRegimeBreakdown
     summary_insight: str
+    disclaimer: str = (
+        "This calculation is an estimate based on applicable Indian Income Tax Department provisions. "
+        "Actual liability may vary with surcharges, specific exempt allowances, and finalized IT returns."
+    )
 
 
 # --- FIRE & SIP Simulator Schemas ---

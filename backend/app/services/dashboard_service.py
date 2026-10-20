@@ -36,11 +36,12 @@ class DashboardService:
                 total_assets += bal
 
         net_worth = total_assets - total_liabilities
+        curr = accounts[0].currency if accounts and accounts[0].currency else "INR"
         net_worth_summary = NetWorthSummary(
             total_assets=total_assets,
             total_liabilities=total_liabilities,
             net_worth=net_worth,
-            currency="USD",
+            currency=curr,
             account_count=len(accounts),
         )
 
@@ -69,10 +70,10 @@ class DashboardService:
 
         # 3. Cashflow Trend (Group by day)
         daily_map: Dict[str, Dict[str, Decimal]] = {}
-        curr = start_date
-        while curr <= end_date:
-            daily_map[curr.isoformat()] = {"income": Decimal("0.00"), "expense": Decimal("0.00")}
-            curr += datetime.timedelta(days=1)
+        curr_d = start_date
+        while curr_d <= end_date:
+            daily_map[curr_d.isoformat()] = {"income": Decimal("0.00"), "expense": Decimal("0.00")}
+            curr_d += datetime.timedelta(days=1)
 
         for tx in period_txs:
             d_str = tx.transaction_date.isoformat()

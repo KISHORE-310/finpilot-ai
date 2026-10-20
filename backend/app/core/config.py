@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     RATE_LIMIT_IMPORT_PER_MINUTE: int = 15
     RATE_LIMIT_DEFAULT_PER_MINUTE: int = 120
 
+    # Trusted reverse proxies for client IP resolution
+    TRUSTED_PROXIES: Union[str, List[str]] = ["127.0.0.1", "::1"]
+
     # Database — NO hardcoded credentials; dev defaults use localhost only
     DATABASE_URL: str = "postgresql+asyncpg://finpilot_user:change_me@localhost:5432/finpilot_db"
     SYNC_DATABASE_URL: str = "postgresql://finpilot_user:change_me@localhost:5432/finpilot_db"
@@ -42,6 +45,12 @@ class Settings(BaseSettings):
         if isinstance(self.CORS_ORIGINS, list):
             return self.CORS_ORIGINS
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    @property
+    def trusted_proxies_list(self) -> List[str]:
+        if isinstance(self.TRUSTED_PROXIES, list):
+            return self.TRUSTED_PROXIES
+        return [proxy.strip() for proxy in self.TRUSTED_PROXIES.split(",") if proxy.strip()]
 
     def validate_production_secrets(self) -> None:
         """Fail fast in production if critical secrets are missing or use dev defaults."""
@@ -69,12 +78,17 @@ class Settings(BaseSettings):
         if "change_me" in self.DATABASE_URL or "change_me" in self.SYNC_DATABASE_URL:
             errors.append("DATABASE_URL / SYNC_DATABASE_URL must not use dev placeholder passwords in production.")
 
+        # CORS_ORIGINS must not use wildcard '*' in production
+        cors_list = self.cors_origins_list
+        if "*" in cors_list:
+            errors.append("CORS_ORIGINS must not contain wildcard '*' in production.")
+
         if errors:
             for err in errors:
                 print(f"[STARTUP ERROR] {err}", file=sys.stderr)
             raise RuntimeError(
                 "Production startup blocked: insecure or missing configuration. "
-                "Check SECRET_KEY and DATABASE_URL environment variables."
+                "Check SECRET_KEY, DATABASE_URL, and CORS_ORIGINS environment variables."
             )
 
 

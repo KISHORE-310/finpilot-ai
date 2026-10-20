@@ -62,14 +62,25 @@ async def _get_owned_conversation(db: AsyncSession, conversation_id: str, user_i
 async def get_ai_health():
     """Safe AI configuration health check without revealing secrets or keys."""
     docs = load_knowledge_documents()
+    from app.ai.models.provider import get_ai_provider_status
+    from app.ai.rag.vector_store import get_vector_store
+
+    status_info = get_ai_provider_status()
+    store = get_vector_store()
+    rag_mode = getattr(store, "storage_type", "in_memory")
+
     return AIHealthResponse(
-        enabled=ai_settings.is_configured,
-        provider=ai_settings.LLM_PROVIDER,
-        model=ai_settings.LLM_MODEL,
+        enabled=True,
+        provider=status_info["provider"],
+        model=status_info["model"],
         tools_count=len(get_financial_tools(session=None, user_id="")),
         knowledge_docs_count=len(docs),
         rag_documents_count=len(docs),
         rate_limit_per_minute=ai_settings.RATE_LIMIT_REQUESTS_PER_MINUTE,
+        mode=status_info["mode"],
+        is_mock=status_info["is_mock"],
+        status_label=status_info["status_label"],
+        rag_persistence=rag_mode,
     )
 
 

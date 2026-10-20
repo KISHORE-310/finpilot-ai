@@ -50,6 +50,8 @@ function AIAnalystContent() {
       citations?: Citation[];
       key_metrics?: KeyMetric[];
       guardrail_intervened?: boolean;
+      is_mock?: boolean;
+      provider?: string;
       created_at?: string;
     }>
   >([]);
@@ -192,6 +194,8 @@ function AIAnalystContent() {
         citations: response.citations,
         key_metrics: response.key_metrics,
         guardrail_intervened: response.guardrail_intervened,
+        is_mock: response.is_mock,
+        provider: response.provider,
         created_at: new Date().toISOString(),
       };
 
@@ -257,9 +261,15 @@ function AIAnalystContent() {
             <div className="flex items-center justify-between text-slate-400">
               <span className="flex items-center gap-1.5 font-medium">
                 <Cpu className="w-3.5 h-3.5 text-blue-400" />
-                LangGraph Mesh
+                Provider
               </span>
-              <span className="text-emerald-400 font-mono font-semibold">5 Nodes Active</span>
+              <span className={`font-mono font-semibold text-[10px] px-1.5 py-0.5 rounded ${
+                healthInfo.is_mock
+                  ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                  : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+              }`}>
+                {healthInfo.is_mock ? "Deterministic Mock" : healthInfo.model || "Live OpenAI"}
+              </span>
             </div>
             <div className="flex items-center justify-between text-slate-400">
               <span className="flex items-center gap-1.5 font-medium">
@@ -267,6 +277,15 @@ function AIAnalystContent() {
                 Verified Corpus
               </span>
               <span className="text-slate-300 font-mono font-semibold">{healthInfo.knowledge_docs_count} Docs</span>
+            </div>
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="flex items-center gap-1.5 font-medium">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                RAG Persistence
+              </span>
+              <span className="text-slate-300 font-mono text-[10px]">
+                {healthInfo.rag_persistence === "persistent_pgvector" ? "pgvector (Persistent)" : "In-Memory"}
+              </span>
             </div>
           </div>
         )}
@@ -327,7 +346,14 @@ function AIAnalystContent() {
                 <Sparkles className="w-4 h-4 text-purple-400" />
                 AI Financial Analyst Workspace
               </h1>
-              <Badge variant="purple" size="sm">LangGraph Engine</Badge>
+              <div className="flex items-center gap-1.5">
+                <Badge variant="purple" size="sm">LangGraph Engine</Badge>
+                {healthInfo && (
+                  <Badge variant={healthInfo.is_mock ? "warning" : "success"} size="sm">
+                    {healthInfo.is_mock ? "Deterministic Mock Mode" : (healthInfo.model || "Live AI")}
+                  </Badge>
+                )}
+              </div>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
               Multi-agent reasoning with deterministic tool calls and verified regulatory knowledge
@@ -406,7 +432,14 @@ function AIAnalystContent() {
                           <span className="font-semibold text-slate-300 text-[11px]">LangGraph Multi-Agent Execution Pipeline</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="success" size="sm">5/5 Quality Gates</Badge>
+                          <div className="flex items-center gap-1.5">
+                            {msg.is_mock && (
+                              <Badge variant="neutral" size="sm" className="text-[10px] text-amber-400 border-amber-500/30">Mock Engine</Badge>
+                            )}
+                            <Badge variant={msg.guardrail_intervened ? "warning" : "success"} size="sm">
+                              {msg.guardrail_intervened ? "Guardrail Intervened" : "5/5 Quality Gates Passed"}
+                            </Badge>
+                          </div>
                           {expandedTraceIdx === index ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         </div>
                       </div>
@@ -441,7 +474,9 @@ function AIAnalystContent() {
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[10px]">
                               <span className="text-emerald-400">✓ Grounding Validated</span>
                               <span className="text-emerald-400">✓ ₹ INR Formatted</span>
-                              <span className="text-emerald-400">✓ Non-Advisory Safe</span>
+                              <span className={msg.guardrail_intervened ? "text-amber-400 font-medium" : "text-emerald-400"}>
+                                {msg.guardrail_intervened ? "⚠ Non-Advisory Guardrail Triggered" : "✓ Non-Advisory Safe"}
+                              </span>
                               <span className="text-emerald-400">✓ Math Balanced</span>
                               <span className="text-emerald-400">✓ Completeness Passed</span>
                             </div>

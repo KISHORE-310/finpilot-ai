@@ -28,11 +28,12 @@ class AccountService:
                 total_assets += bal
 
         net_worth = total_assets - total_liabilities
+        curr = accounts[0].currency if accounts and accounts[0].currency else "INR"
         return NetWorthSummary(
             total_assets=total_assets,
             total_liabilities=total_liabilities,
             net_worth=net_worth,
-            currency="USD",
+            currency=curr,
             account_count=len(accounts),
         )
 

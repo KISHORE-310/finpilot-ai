@@ -1,6 +1,7 @@
-﻿"""
+"""
 Phase 4: pgvector-backed vector store with graceful in-memory fallback.
 The in-memory fallback ensures tests (which use SQLite) continue working.
+Truthfully reports persistence mode: "persistent_pgvector" vs "in_memory".
 """
 from __future__ import annotations
 
@@ -36,6 +37,8 @@ class InMemoryVectorStore:
         self._embedder = embedder
         self._docs: List[VectorDocument] = []
         self._vecs: List[List[float]] = []
+        self.storage_type: str = "in_memory"
+        self.is_persistent: bool = False
 
     def add_documents(self, docs: List[VectorDocument]) -> None:
         texts = [d.content for d in docs]
@@ -74,16 +77,23 @@ class InMemoryVectorStore:
 class PgVectorStore:
     """
     PostgreSQL + pgvector store using raw asyncpg for vector operations.
-    Falls back to InMemoryVectorStore if extension is unavailable.
+    Falls back to InMemoryVectorStore if extension or server is unavailable.
     """
 
-    def __init__(self, embedder: EmbeddingProvider) -> None:
+    def __init__(self, embedder: EmbeddingProvider, connection_str: Optional[str] = None) -> None:
         self._embedder = embedder
         self._fallback = InMemoryVectorStore(embedder)
+        self._connection_str = connection_str
         self._available = False  # Set True after successful init
+        self.storage_type: str = "in_memory"
+
+    @property
+    def is_persistent(self) -> bool:
+        return self._available
 
     async def initialize(self, connection_str: str) -> None:
         """Create table and ivfflat index if pgvector extension is available."""
+        self._connection_str = connection_str
         try:
             import asyncpg
             conn = await asyncpg.connect(connection_str)
@@ -98,22 +108,25 @@ class PgVectorStore:
                     );
                 """)
                 self._available = True
-                logger.info("pgvector store initialized successfully.")
+                self.storage_type = "persistent_pgvector"
+                logger.info("pgvector persistent store initialized successfully.")
             finally:
                 await conn.close()
         except Exception as exc:
             logger.warning(f"pgvector unavailable, using in-memory fallback: {exc}")
             self._available = False
+            self.storage_type = "in_memory"
 
-    async def add_documents(self, docs: List[VectorDocument], connection_str: str) -> None:
-        if not self._available:
+    async def add_documents(self, docs: List[VectorDocument], connection_str: Optional[str] = None) -> None:
+        c_str = connection_str or self._connection_str
+        if not self._available or not c_str:
             self._fallback.add_documents(docs)
             return
         try:
             import asyncpg
             texts = [d.content for d in docs]
             vecs = self._embedder.embed_texts(texts)
-            conn = await asyncpg.connect(connection_str)
+            conn = await asyncpg.connect(c_str)
             try:
                 for doc, vec in zip(docs, vecs):
                     vec_str = "[" + ",".join(str(v) for v in vec) + "]"
@@ -131,16 +144,21 @@ class PgVectorStore:
             logger.error(f"pgvector add_documents failed: {exc}")
             self._fallback.add_documents(docs)
 
-    async def similarity_search(
+    def similarity_search(self, query: str, top_k: int = 5) -> List[VectorDocument]:
+        """Synchronous search falling back cleanly to in-memory index."""
+        return self._fallback.similarity_search(query, top_k)
+
+    async def similarity_search_async(
         self, query: str, top_k: int = 5, connection_str: Optional[str] = None
     ) -> List[VectorDocument]:
-        if not self._available or connection_str is None:
+        c_str = connection_str or self._connection_str
+        if not self._available or not c_str:
             return self._fallback.similarity_search(query, top_k)
         try:
             import asyncpg
             q_vec = self._embedder.embed_query(query)
             vec_str = "[" + ",".join(str(v) for v in q_vec) + "]"
-            conn = await asyncpg.connect(connection_str)
+            conn = await asyncpg.connect(c_str)
             try:
                 rows = await conn.fetch(
                     f"""SELECT id, content, metadata,
@@ -168,18 +186,29 @@ class PgVectorStore:
     def count(self) -> int:
         return self._fallback.count()
 
+    def clear(self) -> None:
+        self._fallback.clear()
+
 
 # ─── Module-level singleton ────────────────────────────────────────────────────
 
 _vector_store: Optional[InMemoryVectorStore | PgVectorStore] = None
 
 
-def get_vector_store() -> InMemoryVectorStore:
-    """Return the module-level vector store (always in-memory for sync use)."""
+def get_vector_store() -> InMemoryVectorStore | PgVectorStore:
+    """Return the module-level vector store with explicit persistence state."""
     global _vector_store
     if _vector_store is None:
-        _vector_store = InMemoryVectorStore(get_embedding_provider())
-    return _vector_store  # type: ignore[return-value]
+        from app.core.config import settings
+        embedder = get_embedding_provider()
+        if "postgresql" in settings.DATABASE_URL.lower():
+            # Persistent pgvector store candidate
+            pg_store = PgVectorStore(embedder)
+            _vector_store = pg_store
+        else:
+            mem_store = InMemoryVectorStore(embedder)
+            _vector_store = mem_store
+    return _vector_store
 
 
 def reset_vector_store() -> None:

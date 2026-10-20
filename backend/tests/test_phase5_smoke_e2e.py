@@ -1,6 +1,7 @@
 import io
 import json
 import pytest
+from datetime import date
 from httpx import AsyncClient
 
 
@@ -53,7 +54,7 @@ async def test_full_phase5_e2e_smoke_flow(client: AsyncClient):
         "amount": "25000.00",
         "transaction_type": "income",
         "description": "Consulting Retainer",
-        "transaction_date": "2026-09-15"
+        "transaction_date": date.today().isoformat()
     })
     assert tx_income_res.status_code == 201, f"Income transaction failed: {tx_income_res.text}"
 
@@ -63,7 +64,7 @@ async def test_full_phase5_e2e_smoke_flow(client: AsyncClient):
         "transaction_type": "expense",
         "description": "Swiggy Dining & Groceries",
         "merchant_name": "Swiggy",
-        "transaction_date": "2026-09-16"
+        "transaction_date": date.today().isoformat()
     })
     assert tx_exp_res.status_code == 201, f"Expense transaction failed: {tx_exp_res.text}"
 

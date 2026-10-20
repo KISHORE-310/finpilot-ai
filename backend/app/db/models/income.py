@@ -11,6 +11,7 @@ class IncomeSource(str, enum.Enum):
     FREELANCE = "freelance"
     INVESTMENTS = "investments"
     RENTAL = "rental"
+    GIFT = "gift"
     OTHER = "other"
 
 

@@ -197,7 +197,7 @@ async def test_income_analytics_single_source_from_transactions(client: AsyncCli
 
     await client.post(
         "/api/v1/income",
-        json={"account_id": acc_id, "category_id": cat_id, "source": "salary", "amount": 50000.0, "is_recurring": True},
+        json={"category_id": cat_id, "source": "salary", "amount": 50000.0, "is_recurring": True},
         headers=auth_headers,
     )
 

@@ -1,6 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 import math
 from typing import List, Tuple, Optional
+from app.core.errors import ValidationException
 from app.schemas.calculator import (
     TaxCalculatorRequest,
     TaxCalculatorResponse,
@@ -23,10 +24,17 @@ def _round2(val: Decimal) -> Decimal:
     return val.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
+SUPPORTED_FINANCIAL_YEARS = {
+    "2023-24": "2024-25",
+    "2024-25": "2025-26",
+    "2025-26": "2026-27",
+}
+
+
 class CalculatorService:
     """
     Pure deterministic mathematical service for Indian personal financial planning:
-    - Old vs New Income Tax Regime comparison
+    - Official Income Tax Department Old vs New Regime calculation across supported Financial Years
     - FIRE (Financial Independence, Retire Early) & SIP Step-Up Simulator
     - Loan EMI Amortization & Prepayment Interest Reduction
     """
@@ -50,32 +58,69 @@ class CalculatorService:
 
     @classmethod
     def calculate_tax(cls, req: TaxCalculatorRequest) -> TaxCalculatorResponse:
+        fy = req.financial_year.strip() if req.financial_year else "2024-25"
+        if fy not in SUPPORTED_FINANCIAL_YEARS:
+            supported = ", ".join(sorted(SUPPORTED_FINANCIAL_YEARS.keys()))
+            raise ValidationException(
+                f"Financial year '{fy}' is not supported. Supported financial years are: {supported}."
+            )
+
+        ay = SUPPORTED_FINANCIAL_YEARS[fy]
         gross = req.gross_annual_income
         basic = req.basic_salary if req.basic_salary is not None else (gross * Decimal("0.40"))
 
-        # 1. NEW REGIME CALCULATION (Budget 2024 / FY 2024-25 & 2025-26)
-        new_std_deduction = Decimal("75000.00")
-        new_taxable_income = max(Decimal("0.00"), gross - new_std_deduction)
+        # -------------------------------------------------------------
+        # 1. NEW REGIME CALCULATION (Section 115BAC)
+        # -------------------------------------------------------------
+        if fy == "2023-24":
+            # FY 2023-24 (AY 2024-25): Standard Deduction ₹50,000, 6 slabs
+            new_std_deduction = Decimal("50000.00")
+            new_taxable_income = max(Decimal("0.00"), gross - new_std_deduction)
 
-        new_slab_tax = Decimal("0.00")
-        if new_taxable_income > Decimal("1500000.00"):
-            new_slab_tax += (new_taxable_income - Decimal("1500000.00")) * Decimal("0.30")
-            new_slab_tax += Decimal("140000.00")
-        elif new_taxable_income > Decimal("1200000.00"):
-            new_slab_tax += (new_taxable_income - Decimal("1200000.00")) * Decimal("0.20")
-            new_slab_tax += Decimal("80000.00")
-        elif new_taxable_income > Decimal("1000000.00"):
-            new_slab_tax += (new_taxable_income - Decimal("1000000.00")) * Decimal("0.15")
-            new_slab_tax += Decimal("50000.00")
-        elif new_taxable_income > Decimal("700000.00"):
-            new_slab_tax += (new_taxable_income - Decimal("700000.00")) * Decimal("0.10")
-            new_slab_tax += Decimal("20000.00")
-        elif new_taxable_income > Decimal("300000.00"):
-            new_slab_tax += (new_taxable_income - Decimal("300000.00")) * Decimal("0.05")
+            new_slab_tax = Decimal("0.00")
+            if new_taxable_income > Decimal("1500000.00"):
+                new_slab_tax += (new_taxable_income - Decimal("1500000.00")) * Decimal("0.30")
+                new_slab_tax += Decimal("150000.00")
+            elif new_taxable_income > Decimal("1200000.00"):
+                new_slab_tax += (new_taxable_income - Decimal("1200000.00")) * Decimal("0.20")
+                new_slab_tax += Decimal("90000.00")
+            elif new_taxable_income > Decimal("900000.00"):
+                new_slab_tax += (new_taxable_income - Decimal("900000.00")) * Decimal("0.15")
+                new_slab_tax += Decimal("45000.00")
+            elif new_taxable_income > Decimal("600000.00"):
+                new_slab_tax += (new_taxable_income - Decimal("600000.00")) * Decimal("0.10")
+                new_slab_tax += Decimal("15000.00")
+            elif new_taxable_income > Decimal("300000.00"):
+                new_slab_tax += (new_taxable_income - Decimal("300000.00")) * Decimal("0.05")
 
-        new_rebate_87a = Decimal("0.00")
-        if new_taxable_income <= Decimal("700000.00"):
-            new_rebate_87a = new_slab_tax
+            new_rebate_87a = Decimal("0.00")
+            if new_taxable_income <= Decimal("700000.00"):
+                new_rebate_87a = min(new_slab_tax, Decimal("25000.00"))
+
+        else:
+            # FY 2024-25 & FY 2025-26: Standard Deduction ₹75,000, revised 5-slab structure
+            new_std_deduction = Decimal("75000.00")
+            new_taxable_income = max(Decimal("0.00"), gross - new_std_deduction)
+
+            new_slab_tax = Decimal("0.00")
+            if new_taxable_income > Decimal("1500000.00"):
+                new_slab_tax += (new_taxable_income - Decimal("1500000.00")) * Decimal("0.30")
+                new_slab_tax += Decimal("140000.00")
+            elif new_taxable_income > Decimal("1200000.00"):
+                new_slab_tax += (new_taxable_income - Decimal("1200000.00")) * Decimal("0.20")
+                new_slab_tax += Decimal("80000.00")
+            elif new_taxable_income > Decimal("1000000.00"):
+                new_slab_tax += (new_taxable_income - Decimal("1000000.00")) * Decimal("0.15")
+                new_slab_tax += Decimal("50000.00")
+            elif new_taxable_income > Decimal("700000.00"):
+                new_slab_tax += (new_taxable_income - Decimal("700000.00")) * Decimal("0.10")
+                new_slab_tax += Decimal("20000.00")
+            elif new_taxable_income > Decimal("300000.00"):
+                new_slab_tax += (new_taxable_income - Decimal("300000.00")) * Decimal("0.05")
+
+            new_rebate_87a = Decimal("0.00")
+            if new_taxable_income <= Decimal("700000.00"):
+                new_rebate_87a = min(new_slab_tax, Decimal("20000.00"))
 
         new_tax_after_rebate = max(Decimal("0.00"), new_slab_tax - new_rebate_87a)
         new_cess = _round2(new_tax_after_rebate * Decimal("0.04"))
@@ -97,7 +142,9 @@ class CalculatorService:
             monthly_take_home_pay=new_monthly_take_home,
         )
 
+        # -------------------------------------------------------------
         # 2. OLD REGIME CALCULATION
+        # -------------------------------------------------------------
         old_std_deduction = Decimal("50000.00")
         hra_exemption = cls.calculate_hra_exemption(
             basic_salary=basic,
@@ -155,23 +202,24 @@ class CalculatorService:
         if new_total_tax < old_total_tax:
             recommended = "NEW"
             savings = old_total_tax - new_total_tax
-            insight = f"New Tax Regime saves you ₹{savings:,.2f} annually compared to Old Regime."
+            insight = f"For FY {fy} (AY {ay}), New Tax Regime saves you ₹{savings:,.2f} annually compared to Old Regime."
         elif old_total_tax < new_total_tax:
             recommended = "OLD"
             savings = new_total_tax - old_total_tax
-            insight = f"Old Tax Regime saves you ₹{savings:,.2f} annually due to significant Chapter VI-A & HRA deductions."
+            insight = f"For FY {fy} (AY {ay}), Old Tax Regime saves you ₹{savings:,.2f} annually due to significant Chapter VI-A & HRA deductions."
         else:
             recommended = "NEW"
             savings = Decimal("0.00")
-            insight = "Both Tax Regimes result in identical tax liability for your income bracket."
+            insight = f"For FY {fy} (AY {ay}), both Tax Regimes result in identical tax liability for your income bracket."
 
         return TaxCalculatorResponse(
-            financial_year=req.financial_year,
+            financial_year=fy,
+            assessment_year=ay,
             recommended_regime=recommended,
             tax_savings_with_recommended=_round2(savings),
             new_regime=new_breakdown,
             old_regime=old_breakdown,
-            summary_insight=insight
+            summary_insight=insight,
         )
 
     @classmethod

@@ -86,6 +86,55 @@ async def test_rate_limiter_blocks_excessive_requests(client: AsyncClient):
     assert "429" in str(exc_info.value) or "Rate limit exceeded" in str(exc_info.value)
 
 
+@pytest.mark.asyncio
+async def test_rate_limiter_spoofed_forwarded_for_cannot_bypass():
+    """Verify that an untrusted client cannot bypass rate limits by spoofing X-Forwarded-For."""
+    limiter = InMemoryRateLimiter("spoof_test", limit_provider=lambda: 2, window_seconds=60)
+    limiter.reset()
+
+    class SpoofedRequest:
+        def __init__(self, spoofed_ip: str):
+            self.headers = {"X-Forwarded-For": spoofed_ip}
+            self.client = type("Client", (), {"host": "203.0.113.195"})()  # Untrusted external IP
+
+    req1 = SpoofedRequest("1.1.1.1")
+    req2 = SpoofedRequest("2.2.2.2")
+    req3 = SpoofedRequest("3.3.3.3")
+
+    limiter.check_rate_limit(req1)
+    limiter.check_rate_limit(req2)
+
+    # 3rd request with different spoofed X-Forwarded-For MUST STILL BE BLOCKED
+    with pytest.raises(Exception) as exc_info:
+        limiter.check_rate_limit(req3)
+    assert "429" in str(exc_info.value) or "Rate limit exceeded" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_trusted_proxy_forwarded_for():
+    """Verify that trusted reverse proxies properly forward client IP without mixing."""
+    limiter = InMemoryRateLimiter("proxy_test", limit_provider=lambda: 2, window_seconds=60)
+    limiter.reset()
+
+    class ProxyRequest:
+        def __init__(self, client_ip: str):
+            self.headers = {"X-Forwarded-For": client_ip}
+            self.client = type("Client", (), {"host": "127.0.0.1"})()  # Configured trusted proxy
+
+    req_client_a = ProxyRequest("198.51.100.1")
+    req_client_b = ProxyRequest("198.51.100.2")
+
+    # Client A consumes 2 requests
+    limiter.check_rate_limit(req_client_a)
+    limiter.check_rate_limit(req_client_a)
+
+    with pytest.raises(Exception):
+        limiter.check_rate_limit(req_client_a)
+
+    # Client B should NOT be blocked by Client A's limit
+    limiter.check_rate_limit(req_client_b)
+
+
 # ==============================================================================
 # 3. CSV / EXCEL IMPORT SECURITY & VALIDATION TESTS
 # ==============================================================================
